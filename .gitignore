@@ -1,0 +1,15 @@
+# Maven build output
+target/
+
+# Packaged app
+dist/
+app-input/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# OS
+Thumbs.db
+.DS_Store
