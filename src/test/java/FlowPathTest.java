@@ -39,13 +39,13 @@ class FlowPathTest {
     @Test
     void ladderBranchesShareCurrentByConductance() {
         // R2 = 20 Ом вдвое меньше R3 = 40 Ом — по ветви R2 идёт вдвое больший ток
-        LadderScheme s = new LadderScheme(30, 10, 20, 40, 50, false, false);
+        LadderScheme s = new LadderScheme(30, 10, 20, 40, 50, false, false, Element.RESISTOR);
         List<FlowPath> paths = s.flowPaths(new Random(0));
         assertEquals(2, paths.size());
         double densityR2 = paths.get(0).count / paths.get(0).len;
         double densityR3 = paths.get(1).count / paths.get(1).len;
         assertTrue(densityR2 > densityR3);
-        assertEquals(3, new LadderScheme(30, 10, 20, 40, 50, true, false).flowPaths(new Random(0)).size());
+        assertEquals(3, new LadderScheme(30, 10, 20, 40, 50, true, false, Element.RESISTOR).flowPaths(new Random(0)).size());
     }
 
     @Test
