@@ -68,7 +68,7 @@ public class ElectroQuizApp extends Application {
     private boolean taskFinished = false;
     private boolean solved = false;
     private Timeline timer;
-    private static final int CHART_SEC = 5;        // сколько секунд виден график после верного ответа (тема 4)
+    private static final int CHART_SEC = 5;        // сколько секунд виден график после задания (темы 4 и 5)
     private PauseTransition chartPause;            // идёт показ графика
 
     // элементы интерфейса
@@ -209,6 +209,7 @@ public class ElectroQuizApp extends Application {
                         + "и напряжения» (в ней нет выбора сложности) — два задания по 5 минут. "
                         + "В теме «Переменный ток» два задания (сначала катушка, затем конденсатор): 7 минут на лёгком уровне "
                         + "(5 частот), 10 минут на сложном (6 частот). "
+                        + "В теме «Последовательный колебательный контур» два задания по 10 минут. "
                         + "Время пойдёт сразу после нажатия кнопки.");
         startText.setWrapText(true);
         startText.getStyleClass().add("task-text");
@@ -551,7 +552,6 @@ public class ElectroQuizApp extends Application {
             solved = true;
             int grade = taskLevel.gradeForAttempt(attempt);
             finishTask(grade, "Верно! " + task.correctText() + ". Задание решено с попытки " + attempt + ".");
-            if (task.chart() != null) showChart();
         } else if (attempt >= taskLevel.attempts) {
             String prefix = (taskLevel == Level.EASY) ? "Неверно. В лёгком режиме одна попытка. "
                                                       : "Попытки закончились. ";
@@ -582,18 +582,21 @@ public class ElectroQuizApp extends Application {
         showNextButton(true);
         updateAttempts();
         updateLevelLock();
+        if (task.showsChart(solved)) showChart(grade);
     }
 
     /**
-     * Тема 4: после верного ответа вместо схемы на CHART_SEC секунд показывается график X(f),
-     * затем возвращаются схема, оценка, сообщение и кнопка перехода (их уже выставил finishTask).
+     * Темы 4 и 5: после задания (в теме 4 — только после верного ответа) вместо схемы на CHART_SEC секунд
+     * показывается график, затем возвращаются схема, оценка, сообщение и кнопка перехода (их уже выставил finishTask).
      */
-    private void showChart() {
-        String grade = gradeValue.getText();
+    private void showChart(int grade) {
         String message = feedback.getText();
+        String kind = grade >= 3 ? "ok" : "bad";
+        String style = grade >= 3 ? "grade-good" : "grade-bad";
         gradeValue.setText("—");
-        gradeValue.getStyleClass().remove("grade-good");
-        setFeedback("Верно! График зависимости сопротивления от частоты…", "ok");
+        gradeValue.getStyleClass().remove(style);
+        setFeedback((solved ? "Верно! " : "") + "График зависимости от частоты. Оценка появится через "
+                + CHART_SEC + " секунд…", solved ? "ok" : null);
         showNextButton(false);
         flowPaths.clear();
         flowCheck.setVisible(false);
@@ -603,9 +606,9 @@ public class ElectroQuizApp extends Application {
         chartPause.setOnFinished(ev -> {
             chartPause = null;
             drawScheme(task.scheme());
-            gradeValue.setText(grade);
-            gradeValue.getStyleClass().add("grade-good");      // верный ответ — оценка не ниже 3
-            setFeedback(message, "ok");
+            gradeValue.setText(String.valueOf(grade));
+            gradeValue.getStyleClass().add(style);
+            setFeedback(message, kind);
             showNextButton(true);
             nextBtn.requestFocus();
         });

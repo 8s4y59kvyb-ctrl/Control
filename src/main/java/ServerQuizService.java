@@ -25,7 +25,7 @@ final class ServerQuizService {
     static final Duration IDLE_TTL = Duration.ofHours(3);         // сессии без активности забываются
     static final int GRACE_SEC = 2;                               // запас на задержку сети при проверке времени
     static final int MAX_ANSWER_LEN = 30;
-    static final int CHART_SEC = 5;                               // сколько браузер показывает график после верного ответа
+    static final int CHART_SEC = 5;                               // сколько браузер показывает график после задания
 
     /** Состояние одного теста; все обращения — под synchronized (session). */
     private static final class Session {
@@ -42,7 +42,7 @@ final class ServerQuizService {
 
         Task task;
         Map<String, Object> schemeJson;
-        Map<String, Object> chartJson;    // график после верного ответа (тема 4), иначе null
+        Map<String, Object> chartJson;    // график после задания (темы 4 и 5), иначе null
         int taskNumber, attempt;
         Instant deadline;
         boolean taskDone, finished;
@@ -146,8 +146,6 @@ final class ServerQuizService {
             ses.attempt++;
             int right = ses.task.countCorrect(nums);
             if (right == nums.length) {                       // попытка засчитывается, если верны все значения
-                // график не тратит ses.rnd: порядок случайных чисел в заданиях не меняется
-                if (ses.task.chart() != null) ses.chartJson = ServerSchemeJson.of(ses.task.chart(), new Random(0));
                 finishTask(ses, ses.taskLevel.gradeForAttempt(ses.attempt),
                         "Верно! " + ses.task.correctText() + ". Задание решено с попытки " + ses.attempt + ".");
             } else if (ses.attempt >= ses.taskLevel.attempts) {
@@ -212,6 +210,8 @@ final class ServerQuizService {
         ses.messageKind = grade >= 3 ? "ok" : "bad";
         ses.grades.add(grade);
         ses.kinds.add(ses.task.kind());
+        // оценка 3 и выше — задание решено; график не тратит ses.rnd: порядок случайных чисел не меняется
+        if (ses.task.showsChart(grade >= 3)) ses.chartJson = ServerSchemeJson.of(ses.task.chart(), new Random(0));
         touch(ses);
     }
 

@@ -10,9 +10,9 @@ record Answer(String symbol, String unit, double value) {
         return Math.abs(entered - value) <= Math.max(TOLERANCE * value, 0.01);
     }
 
-    /** Правильный ответ для сообщений, например «I = 0,75 А». */
+    /** Правильный ответ для сообщений, например «I = 0,75 А»; у безразмерной величины единицы нет: «Q = 3,16». */
     String text() {
-        return String.format(Locale.US, "%s = %.2f %s", symbol, value, unit).replace('.', ',');
+        return String.format(Locale.US, "%s = %.2f %s", symbol, value, unit).replace('.', ',').trim();
     }
 
     /** Число из поля ответа (запятая или точка); NaN и Infinity считаются неверным вводом. */

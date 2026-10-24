@@ -10,8 +10,10 @@ import java.util.stream.Collectors;
  * @param hint    подсказка после неверной попытки
  * @param scheme  рисунок схемы и пути тока для анимации
  * @param chart   график, который показывается вместо схемы после верного ответа (тема 4), иначе null
+ * @param chartAlways график показывается при любом исходе задания, а не только после верного ответа (тема 5)
  */
-record Task(String kind, String text, List<Answer> answers, String hint, Scheme scheme, Scheme chart) {
+record Task(String kind, String text, List<Answer> answers, String hint, Scheme scheme, Scheme chart,
+            boolean chartAlways) {
 
     Task {
         answers = List.copyOf(answers);
@@ -20,6 +22,16 @@ record Task(String kind, String text, List<Answer> answers, String hint, Scheme 
     /** Задание без графика после верного ответа. */
     Task(String kind, String text, List<Answer> answers, String hint, Scheme scheme) {
         this(kind, text, answers, hint, scheme, null);
+    }
+
+    /** Задание с графиком только после верного ответа. */
+    Task(String kind, String text, List<Answer> answers, String hint, Scheme scheme, Scheme chart) {
+        this(kind, text, answers, hint, scheme, chart, false);
+    }
+
+    /** Показывать ли график после задания, решённого (solved) или нет. */
+    boolean showsChart(boolean solved) {
+        return chart != null && (solved || chartAlways);
     }
 
     /** Сколько введённых значений верны; values идут в том же порядке, что и answers. */

@@ -65,6 +65,16 @@ class GradingTest {
     }
 
     @Test
+    void resonanceThemeIsReady() {
+        assertTrue(Theme.RESONANCE.ready());
+        assertEquals("5. Переменный ток. Последовательный колебательный контур", Theme.RESONANCE.toString());
+        assertEquals(2, Theme.RESONANCE.tasks);
+        assertTrue(Theme.RESONANCE.hasLevels);
+        assertEquals(10 * 60, Theme.RESONANCE.timeLimitSec(Level.EASY));
+        assertEquals(10 * 60, Theme.RESONANCE.timeLimitSec(Level.HARD));
+    }
+
+    @Test
     void themeTimeLimits() {
         assertEquals(10 * 60, Theme.OHM.timeLimitSec(Level.EASY));
         assertEquals(15 * 60, Theme.OHM.timeLimitSec(Level.HARD));  // сложный уровень темы 1 — 15 минут

@@ -157,7 +157,7 @@ function render(st) {
   startTimer();
 }
 
-/** Верный ответ в теме 4: вместо схемы на chartSec секунд — график X(f), затем оценка и сообщение. */
+/** После задания (тема 4 — только верного, тема 5 — любого): вместо схемы на chartSec секунд — график, затем оценка. */
 function showChart(st) {
   const key = st.sessionId + ':' + st.taskNumber;
   chartsShown.add(key);
@@ -165,7 +165,7 @@ function showChart(st) {
   updateTimer();                               // время стоит: задание завершено
   $('check-btn').hidden = true;
   $('next-btn').hidden = true;
-  setFeedback('Верно! График зависимости сопротивления от частоты. Оценка появится через несколько секунд…', null);
+  setFeedback((st.taskGrade >= 3 ? 'Верно! ' : '') + 'График зависимости от частоты. Оценка появится через несколько секунд…', null);
   const g = $('grade');
   g.textContent = '—';
   g.className = 'grade-value';

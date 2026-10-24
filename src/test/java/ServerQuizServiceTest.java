@@ -189,6 +189,27 @@ class ServerQuizServiceTest {
     }
 
     @Test
+    void resonanceChartShownAfterAnyOutcome() {
+        Map<String, Object> st = start(Theme.RESONANCE, Level.EASY);
+        String id = (String) st.get("sessionId");
+        assertEquals(4, ((List<?>) map(st.get("task")).get("fields")).size());  // f0, ρ, Q, UL
+        assertFalse(map(st.get("task")).containsKey("chart"));
+
+        st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.RESONANCE, Level.EASY, SEED, 0)));
+        assertEquals("task_done", st.get("status"));
+        assertEquals(2, st.get("taskGrade"));
+        assertFalse(((List<?>) map(map(st.get("task")).get("chart")).get("ops")).isEmpty());   // и после неверного
+        assertEquals(5, ((Number) st.get("chartSec")).intValue());
+
+        st = quiz.next(id);                                                      // второе задание — время вышло
+        assertFalse(map(st.get("task")).containsKey("chart"));
+        clock.advanceSeconds(Theme.RESONANCE.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
+        st = quiz.state(id);
+        assertEquals("task_done", st.get("status"));
+        assertTrue(map(st.get("task")).containsKey("chart"));
+    }
+
+    @Test
     void protocolErrors() {
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.state("нет")).status);
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.answer(null, List.of("1"))).status);
