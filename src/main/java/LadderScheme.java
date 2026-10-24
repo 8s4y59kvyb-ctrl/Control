@@ -1,7 +1,3 @@
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -19,7 +15,7 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
     private static final double XB = 505;    // ветвь R3, правый край
 
     @Override
-    public void draw(GraphicsContext g) {
+    public void draw(Painter g) {
         // провода
         g.strokeLine(XS, TOP, 140, TOP);
         g.strokeLine(230, TOP, XB, TOP);
@@ -79,7 +75,7 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
 
         // подписи
         g.setFill(LABEL);
-        g.setFont(Font.font("System", FontWeight.BOLD, 15));
+        g.setBoldFont(15);
         g.fillText("R1 = " + (int) r1 + " Ом", 142, TOP - 28);
         g.fillText("R2", XA + 22, 155);
         g.fillText((int) r2 + " Ом", XA + 22, 173);
@@ -96,7 +92,7 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
         }
         g.setFill(BLUE);
         if (findZ) {
-            g.setFont(Font.font("System", FontWeight.BOLD, 20));
+            g.setBoldFont(20);
             g.fillText("Z = ?", 110, 160);
         } else {
             g.fillText("I", 109, TOP - 32);

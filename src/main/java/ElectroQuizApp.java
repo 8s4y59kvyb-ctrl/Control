@@ -635,10 +635,10 @@ public class ElectroQuizApp extends Application {
     private void drawScheme(Scheme scheme) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        g.setStroke(Scheme.WIRE);
-        g.setFill(Scheme.WIRE);
+        g.setStroke(Color.web(Scheme.WIRE));
+        g.setFill(Color.web(Scheme.WIRE));
         g.setLineWidth(2.2);
-        scheme.draw(g);
+        scheme.draw(new FxPainter(g));
     }
 
     private void startFlow() {
@@ -661,7 +661,7 @@ public class ElectroQuizApp extends Application {
         if (flowStartNs == 0) flowStartNs = now;
 
         double shift = (now - flowStartNs) / 1e9 * FLOW_SPEED;
-        g.setFill(Scheme.BLUE);
+        g.setFill(Color.web(Scheme.BLUE));
         g.setStroke(Color.WHITE);
         g.setLineWidth(1);
         for (FlowPath p : flowPaths) {

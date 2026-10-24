@@ -1,0 +1,92 @@
+/* Палитра и размеры взяты из настольного приложения (src/main/resources/style.css). */
+* { box-sizing: border-box; }
+body { margin: 0; background: #f1f5f9; color: #1e293b; font: 14px "Segoe UI", system-ui, sans-serif; }
+[hidden] { display: none !important; }
+
+/* ---------- шапка ---------- */
+.header { background: #0f172a; padding: 14px 18px; }
+.app-title { color: #fff; font-size: 22px; font-weight: bold; }
+.app-subtitle { color: #94a3b8; font-size: 12px; }
+
+.page { max-width: 960px; margin: 0 auto; padding: 14px; }
+
+/* ---------- карточки ---------- */
+.card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px;
+        box-shadow: 0 3px 12px rgba(15, 23, 42, .10); }
+.card-title { font-size: 16px; font-weight: bold; color: #0f172a; margin: 0 0 6px; }
+.muted { color: #64748b; font-size: 12px; }
+.task-text { color: #1e293b; font-size: 15px; line-height: 1.5; }
+.start-title { font-size: 22px; font-weight: bold; color: #0f172a; margin: 0 0 12px; }
+.rules { color: #475569; font-size: 13px; line-height: 1.5; white-space: pre-line; }
+
+/* ---------- ввод ---------- */
+.field { display: block; margin-bottom: 12px; color: #475569; }
+input[type=text], select { display: block; width: 100%; margin-top: 4px; font: inherit; font-size: 16px;
+        padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; }
+input[type=text]:focus, select:focus { outline: none; border-color: #2563eb; }
+
+.segmented { display: flex; margin: 4px 0 8px; }
+.segmented label { flex: 1; text-align: center; padding: 9px 14px; border: 1px solid #cbd5e1; cursor: pointer;
+        background: #e2e8f0; color: #0f172a; }
+.segmented label:first-child { border-radius: 8px 0 0 8px; }
+.segmented label:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label.on { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: bold; }
+
+.primary-btn { background: #2563eb; color: #fff; font: inherit; font-weight: bold; border: 0; border-radius: 8px;
+        padding: 10px 22px; cursor: pointer; }
+.primary-btn:hover { background: #1d4ed8; }
+.primary-btn:disabled { background: #94a3b8; cursor: default; }
+.secondary-btn { background: #e2e8f0; color: #0f172a; font: inherit; border: 0; border-radius: 8px;
+        padding: 10px 18px; cursor: pointer; }
+.secondary-btn:hover { background: #cbd5e1; }
+.start-btn { font-size: 16px; padding: 12px 32px; width: 100%; }
+
+.fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.answer { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: bold; color: #475569; }
+.answer input { width: 130px; margin: 0; }
+.buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.calc-btn { margin-left: auto; }                      /* прижата к правому краю, после «Проверить» */
+
+.feedback { font-size: 14px; min-height: 1.4em; margin: 10px 0 0; }
+.fb-ok { color: #15803d; font-weight: bold; }
+.fb-bad { color: #b91c1c; font-weight: bold; }
+.fb-warn { color: #b45309; }
+
+/* ---------- схема ---------- */
+.scheme { position: relative; width: 100%; max-width: 600px; aspect-ratio: 2 / 1; margin: 8px 0; }
+.scheme canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.flow-check { color: #475569; font-size: 13px; cursor: pointer; }
+
+/* ---------- боковая панель ---------- */
+.timer-value { font: bold 40px Consolas, monospace; color: #0f172a; }
+.timer-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
+.timer-bar .bar { height: 100%; width: 100%; background: #2563eb; transition: width .3s linear; }
+.timer-warn .timer-value { color: #dc2626; }
+.timer-warn .bar { background: #dc2626; }
+.dots { display: flex; gap: 8px; margin: 6px 0; }
+.dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1; background: #e2e8f0; }
+.dot-used { background: #ef4444; border-color: #b91c1c; }
+.dot-ok { background: #22c55e; border-color: #15803d; }
+.grade-value { font-size: 56px; font-weight: bold; color: #94a3b8; }
+.grade-good { color: #16a34a; }
+.grade-bad { color: #dc2626; }
+
+/* на широком экране боковая панель справа, как в настольном приложении */
+@media (min-width: 800px) {
+  #quiz { display: grid; grid-template-columns: 1fr 280px; gap: 14px; align-items: start; }
+  #quiz > .card { margin: 0; }
+  #quiz > .card:nth-child(1) { grid-column: 1; grid-row: 1; }
+  #quiz > .card:nth-child(2) { grid-column: 1; grid-row: 2; }
+  #quiz > .side { grid-column: 2; grid-row: 1 / span 2; }
+  .side .card:last-child { margin-bottom: 0; }
+}
+
+/* ---------- страница преподавателя ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.filters .field { margin: 0; min-width: 140px; flex: 1; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+th { background: #f8fafc; color: #475569; }
+.secondary-btn { text-decoration: none; display: inline-block; }

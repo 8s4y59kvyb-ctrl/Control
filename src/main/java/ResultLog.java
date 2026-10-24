@@ -16,8 +16,8 @@ import java.util.List;
 final class ResultLog {
 
     static final String HEADER = "№;Дата;Время;Имя;Тема;Сложность;Оценка";
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
+    static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final Path file;
 

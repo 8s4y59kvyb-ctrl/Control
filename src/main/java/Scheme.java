@@ -1,6 +1,3 @@
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
-
 import java.util.List;
 import java.util.Random;
 
@@ -15,20 +12,20 @@ interface Scheme {
     double PLUS_Y = 135;      // длинная пластина источника ЭДС (+)
     double MINUS_Y = 148;     // короткая пластина (−)
 
-    Color WIRE = Color.web("#1f2937");
-    Color BODY = Color.web("#fef3c7");      // корпус резистора
-    Color LABEL = Color.web("#111827");
-    Color BLUE = Color.web("#2563eb");
-    Color PLUS = Color.web("#dc2626");
+    String WIRE = "#1f2937";
+    String BODY = "#fef3c7";    // корпус резистора
+    String LABEL = "#111827";
+    String BLUE = "#2563eb";
+    String PLUS = "#dc2626";
 
     /** Рисует схему; перо уже настроено: цвет WIRE, толщина 2.2. */
-    void draw(GraphicsContext g);
+    void draw(Painter g);
 
     /** Пути тока; доли токов ветвей пропорциональны их проводимостям. */
     List<FlowPath> flowPaths(Random rnd);
 
     /** Источник ЭДС на вертикальном проводе x между верхним и нижним проводами. */
-    static void voltageSource(GraphicsContext g, double x) {
+    static void voltageSource(Painter g, double x) {
         g.strokeLine(x, TOP, x, PLUS_Y);
         g.strokeLine(x - 18, PLUS_Y, x + 18, PLUS_Y);        // длинная пластина (+)
         g.setLineWidth(4);
@@ -38,7 +35,7 @@ interface Scheme {
     }
 
     /** Стрелка от (x1,y1) к (x2,y2), острие в конце. */
-    static void arrow(GraphicsContext g, double x1, double y1, double x2, double y2, Color color) {
+    static void arrow(Painter g, double x1, double y1, double x2, double y2, String color) {
         g.setStroke(color);
         g.setFill(color);
         g.setLineWidth(2.2);

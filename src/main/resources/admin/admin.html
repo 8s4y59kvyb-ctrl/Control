@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ElectroQuiz — результаты</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="header">
+  <div class="app-title">203 кафедра РАДИОЭЛЕКТРОНИКИ</div>
+  <div class="app-subtitle">Журнал результатов (преподаватель)</div>
+</header>
+
+<main class="page">
+  <section id="login" class="card" hidden>
+    <form id="login-form">
+      <label class="field">Пароль преподавателя
+        <input id="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p id="login-error" class="feedback fb-bad" role="alert"></p>
+      <button class="primary-btn" type="submit">Войти</button>
+    </form>
+  </section>
+
+  <div id="journal" hidden>
+  <section class="card">
+    <form id="filters" class="filters">
+      <label class="field">Группа
+        <select id="f-group"><option value="">Все</option></select>
+      </label>
+      <label class="field">Тема
+        <select id="f-theme"><option value="">Все</option></select>
+      </label>
+      <label class="field">Дата с
+        <input id="f-from" type="date" class="date">
+      </label>
+      <label class="field">по
+        <input id="f-to" type="date" class="date">
+      </label>
+      <button class="primary-btn" type="submit">Показать</button>
+      <button id="csv" class="secondary-btn" type="button">Скачать CSV</button>
+      <button id="logout" class="secondary-btn" type="button">Выйти</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div id="summary" class="muted"></div>
+    <p id="error" class="feedback fb-bad" role="alert"></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>№</th><th>Дата</th><th>Время</th><th>Группа</th><th>Фамилия</th><th>Тема</th><th>Сложность</th><th>Оценка</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+  </div>
+</main>
+<script src="/admin/admin.js"></script>
+</body>
+</html>

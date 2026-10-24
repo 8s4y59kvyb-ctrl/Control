@@ -1,8 +1,3 @@
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-
 import java.util.List;
 import java.util.Random;
 
@@ -20,8 +15,8 @@ record DividerScheme(boolean currentMode, double input, double r1, double r2) im
     private static final double A1 = 180, B1 = 280, A2 = 350, B2 = 450, XR = 520;   // выводы R1 и R2, правый край
 
     @Override
-    public void draw(GraphicsContext g) {
-        g.setFont(Font.font("System", FontWeight.BOLD, 15));
+    public void draw(Painter g) {
+        g.setBoldFont(15);
         if (currentMode) {
             drawCurrentDivider(g);
         } else {
@@ -29,7 +24,7 @@ record DividerScheme(boolean currentMode, double input, double r1, double r2) im
         }
     }
 
-    private void drawCurrentDivider(GraphicsContext g) {
+    private void drawCurrentDivider(Painter g) {
         g.strokeLine(XS, TOP, X2, TOP);
         g.strokeLine(XS, BOTTOM, X2, BOTTOM);
         g.strokeLine(XS, TOP, XS, J_TOP);
@@ -42,7 +37,7 @@ record DividerScheme(boolean currentMode, double input, double r1, double r2) im
         g.fillOval(X1 - 4, BOTTOM - 4, 8, 8);
 
         // источник тока: окружность со стрелкой вверх
-        g.setFill(Color.WHITE);
+        g.setFill("#ffffff");
         g.fillOval(XS - 28, J_TOP, 56, J_BOTTOM - J_TOP);
         g.strokeOval(XS - 28, J_TOP, 56, J_BOTTOM - J_TOP);
         // резисторы
@@ -66,7 +61,7 @@ record DividerScheme(boolean currentMode, double input, double r1, double r2) im
         g.fillText("I2 = ?", X2 - 92, 137);
     }
 
-    private void drawVoltageDivider(GraphicsContext g) {
+    private void drawVoltageDivider(Painter g) {
         g.strokeLine(XS, TOP, A1, TOP);
         g.strokeLine(B1, TOP, A2, TOP);
         g.strokeLine(B2, TOP, XR, TOP);

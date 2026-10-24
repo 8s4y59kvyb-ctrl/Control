@@ -14,6 +14,7 @@
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javafx.version>21.0.5</javafx.version>
+    <javalin.version>6.7.0</javalin.version>
   </properties>
 
   <dependencies>
@@ -21,6 +22,27 @@
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
       <version>${javafx.version}</version>
+    </dependency>
+    <!-- веб-версия (ServerLauncher): HTTP-сервер, JSON, SQLite; в настольный jar не попадают -->
+    <dependency>
+      <groupId>io.javalin</groupId>
+      <artifactId>javalin</artifactId>
+      <version>${javalin.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.18.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>3.53.4.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.17</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -49,25 +71,94 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.2.5</version>
       </plugin>
-      <!-- упаковывает программу и JavaFX в один jar; запускается через класс Launcher -->
+      <!--
+        Два jar из одних классов. Серверные классы называются Server*, статика лежит в web/.
+        1) target/ElectroQuizServer.jar — веб-версия, без JavaFX (запуск: java -jar, класс ServerLauncher).
+           Идёт первой и только прикрепляется к проекту, чтобы не подменить основной артефакт.
+        2) target/ElectroQuiz.jar — настольное приложение с JavaFX (класс Launcher), без Javalin и SQLite.
+      -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.5.1</version>
         <executions>
           <execution>
+            <id>server-jar</id>
             <phase>package</phase>
             <goals>
               <goal>shade</goal>
             </goals>
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>server</shadedClassifierName>
+              <outputFile>${project.build.directory}/ElectroQuizServer.jar</outputFile>
+              <artifactSet>
+                <excludes>
+                  <exclude>org.openjfx:*</exclude>
+                </excludes>
+              </artifactSet>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>ServerLauncher</mainClass>
+                  <manifestEntries>
+                    <Multi-Release>true</Multi-Release>
+                  </manifestEntries>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
+              <filters>
+                <filter>
+                  <artifact>edu.electro:electro-quiz</artifact>
+                  <excludes>
+                    <exclude>ElectroQuizApp*.class</exclude>
+                    <exclude>Launcher.class</exclude>
+                    <exclude>FxPainter.class</exclude>
+                    <exclude>style.css</exclude>
+                    <exclude>icon.png</exclude>
+                  </excludes>
+                </filter>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/versions/*/module-info.class</exclude>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+          <execution>
+            <id>desktop-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <artifactSet>
+                <includes>
+                  <include>edu.electro:electro-quiz</include>
+                  <include>org.openjfx:*</include>
+                </includes>
+              </artifactSet>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>Launcher</mainClass>
                 </transformer>
               </transformers>
               <filters>
+                <filter>
+                  <artifact>edu.electro:electro-quiz</artifact>
+                  <excludes>
+                    <exclude>Server*.class</exclude>
+                    <exclude>web/**</exclude>
+                    <exclude>admin/**</exclude>
+                  </excludes>
+                </filter>
                 <filter>
                   <artifact>*:*</artifact>
                   <excludes>

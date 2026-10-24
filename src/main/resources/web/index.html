@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ElectroQuiz</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="header">
+  <div class="app-title">203 кафедра РАДИОЭЛЕКТРОНИКИ</div>
+  <div class="app-subtitle">Программа контроля знаний</div>
+</header>
+
+<main class="page">
+
+  <!-- вход и выбор темы -->
+  <section id="start" class="card" hidden>
+    <h1 class="start-title">Начать тестирование</h1>
+    <form id="start-form" autocomplete="off">
+      <label class="field">Номер группы
+        <input id="group" type="text" maxlength="20" required placeholder="например 10-52">
+      </label>
+      <label class="field">Фамилия
+        <input id="surname" type="text" maxlength="80" required placeholder="Иванов Иван Иванович">
+      </label>
+      <label class="field">Тема
+        <select id="theme"></select>
+      </label>
+      <div id="level-box" class="field">
+        <span>Сложность</span>
+        <div id="levels" class="segmented"></div>
+        <div id="start-rules" class="rules"></div>
+      </div>
+      <p id="start-error" class="feedback fb-bad" role="alert"></p>
+      <button id="start-btn" class="primary-btn start-btn" type="submit">Начать тестирование</button>
+    </form>
+  </section>
+
+  <!-- решение заданий -->
+  <section id="quiz" hidden>
+    <div class="card">
+      <div class="who muted" id="who"></div>
+      <h2 class="card-title" id="task-title"></h2>
+      <div class="muted" id="theme-label"></div>
+      <p class="task-text" id="task-text"></p>
+      <div class="scheme">
+        <canvas id="scheme" aria-label="Схема цепи"></canvas>
+        <canvas id="flow" aria-hidden="true"></canvas>
+      </div>
+      <label class="flow-check"><input id="flow-on" type="checkbox" checked> Показать движение тока</label>
+    </div>
+
+    <div class="card">
+      <form id="answer-form" autocomplete="off">
+        <div id="fields" class="fields"></div>
+        <div class="buttons">
+          <button id="check-btn" class="primary-btn" type="submit">Проверить</button>
+          <button id="next-btn" class="secondary-btn" type="button" hidden></button>
+          <!-- протокол calculator: открывает встроенный калькулятор Windows 10/11 (браузер сначала спросит разрешение) -->
+          <a id="calc-btn" class="secondary-btn calc-btn" href="calculator:" title="Открыть калькулятор Windows">Калькулятор</a>
+        </div>
+      </form>
+      <p id="feedback" class="feedback" role="status"></p>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <div class="card-title">Время</div>
+        <div id="timer" class="timer-value">--:--</div>
+        <div class="timer-bar"><div id="timer-fill" class="bar"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Попытки</div>
+        <div id="dots" class="dots"></div>
+        <div id="attempts" class="muted"></div>
+        <div id="rules" class="rules"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Оценка за задание</div>
+        <div id="grade" class="grade-value">—</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- итог -->
+  <section id="result" class="card" hidden>
+    <h1 class="start-title">Тест завершён</h1>
+    <div id="result-info" class="rules"></div>
+    <div class="muted">Итоговая оценка</div>
+    <div id="result-grade" class="grade-value"></div>
+    <button id="again-btn" class="primary-btn" type="button">Новый тест</button>
+  </section>
+
+</main>
+<script src="app.js"></script>
+</body>
+</html>
