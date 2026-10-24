@@ -131,11 +131,15 @@ final class ServerRepository {
         }
     }
 
-    /** Записи журнала по фильтру, новые сверху. */
+    /**
+     * Записи журнала по фильтру: по группе, внутри группы по фамилии (русский алфавит),
+     * у одного курсанта новые попытки сверху. Сортировка в SQL, чтобы LIMIT/OFFSET делили уже упорядоченный список.
+     */
     List<ResultRow> find(Filter f, int limit, int offset) {
         List<Object> args = new ArrayList<>();
-        String sql = "SELECT id, taken_at, grp, surname, theme, level, grade FROM results"
-                + where(f, args) + " ORDER BY taken_at DESC, id DESC LIMIT ? OFFSET ?";
+        String sql = "SELECT id, taken_at, grp, surname, theme, level, grade FROM results" + where(f, args)
+                + " ORDER BY grp COLLATE " + ServerDatabase.RU + ", surname COLLATE " + ServerDatabase.RU
+                + ", taken_at DESC, id DESC LIMIT ? OFFSET ?";
         args.add(limit);
         args.add(offset);
         try (Connection c = db.open(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -172,7 +176,7 @@ final class ServerRepository {
     /** Группы, по которым есть результаты, для выпадающего списка фильтра. */
     List<String> groups() {
         try (Connection c = db.open(); Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery("SELECT DISTINCT grp FROM results ORDER BY grp")) {
+             ResultSet rs = st.executeQuery("SELECT DISTINCT grp FROM results ORDER BY grp COLLATE " + ServerDatabase.RU)) {
             List<String> list = new ArrayList<>();
             while (rs.next()) list.add(rs.getString(1));
             return list;

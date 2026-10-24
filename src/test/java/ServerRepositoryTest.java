@@ -52,18 +52,45 @@ class ServerRepositoryTest {
     @Test
     void savesAndReadsResultNewestFirst() {
         long first = save("s1", "КМ-21", "Иванов", Theme.OHM, Level.HARD, 4.5, T1);
-        long second = save("s2", "КМ-21", "Петров", Theme.DIVIDERS, null, 5, T2);
+        long second = save("s2", "КМ-21", "Иванов", Theme.DIVIDERS, null, 5, T2);   // тот же курсант: попытки по дате
         assertEquals(true, second > first);
 
         List<ServerRepository.ResultRow> rows = repo.find(ServerRepository.Filter.NONE, 10, 0);
         assertEquals(2, rows.size());
         ServerRepository.ResultRow top = rows.get(0);
-        assertEquals("Петров", top.surname());
+        assertEquals("Иванов", top.surname());
         assertEquals(Theme.DIVIDERS, top.theme());
         assertNull(top.level());                               // тема без выбора сложности
         assertEquals(T2, top.when());
         assertEquals(4.5, rows.get(1).grade());
         assertEquals(Level.HARD, rows.get(1).level());
+    }
+
+    @Test
+    void sortsSurnamesByRussianAlphabet() {
+        // побайтово «Ёлкин» (U+0401) оказался бы первым, а строчная «жуков» ушла бы в конец после «Яковлев»
+        String[] surnames = {"Ёлкин", "Абрамов", "Яковлев", "Егоров", "жуков"};
+        for (int i = 0; i < surnames.length; i++) save("s" + i, "КМ-21", surnames[i], Theme.OHM, Level.EASY, 5, T1.plusMinutes(i));
+
+        List<String> expected = List.of("Абрамов", "Егоров", "Ёлкин", "жуков", "Яковлев");
+        List<String> actual = repo.find(ServerRepository.Filter.NONE, 10, 0).stream()
+                .map(ServerRepository.ResultRow::surname).toList();
+        assertEquals(expected, actual);
+        // страницы режут уже упорядоченный список
+        assertEquals("Ёлкин", repo.find(ServerRepository.Filter.NONE, 1, 2).get(0).surname());
+    }
+
+    @Test
+    void sortsByGroupThenSurnameThenNewestFirst() {
+        save("s1", "КМ-22", "Абрамов", Theme.OHM, Level.EASY, 5, T1);
+        save("s2", "КМ-21", "Яковлев", Theme.OHM, Level.EASY, 5, T1);
+        save("s3", "КМ-21", "Егоров", Theme.OHM, Level.EASY, 3, T1);
+        save("s4", "КМ-21", "Егоров", Theme.OHM, Level.EASY, 4, T2);
+
+        List<ServerRepository.ResultRow> rows = repo.find(ServerRepository.Filter.NONE, 10, 0);
+        assertEquals(List.of("КМ-21 Егоров", "КМ-21 Егоров", "КМ-21 Яковлев", "КМ-22 Абрамов"),
+                rows.stream().map(r -> r.group() + " " + r.surname()).toList());
+        assertEquals(4.0, rows.get(0).grade());                // у одного курсанта сначала более поздняя попытка
     }
 
     @Test

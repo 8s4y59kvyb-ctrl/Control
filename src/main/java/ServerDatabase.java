@@ -1,3 +1,4 @@
+import org.sqlite.Collation;
 import org.sqlite.SQLiteConfig;
 
 import java.io.IOException;
@@ -7,6 +8,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.Collator;
+import java.util.Locale;
 
 /**
  * SQLite без пула: соединение открывается на каждую операцию (для группы курсантов это дёшево),
@@ -75,7 +78,26 @@ final class ServerDatabase {
         }
     }
 
+    /**
+     * Имя сортировки по русскому алфавиту. Встроенная BINARY сравнивает коды символов: «Ё» (U+0401) встала бы
+     * перед «А», а заглавные буквы — перед строчными. Сортировка живёт в соединении, поэтому регистрируется при каждом open().
+     */
+    static final String RU = "RU_ALPHA";
+
     Connection open() throws SQLException {
-        return DriverManager.getConnection(url, config.toProperties());
+        Connection c = DriverManager.getConnection(url, config.toProperties());
+        try {
+            Collator collator = Collator.getInstance(new Locale("ru", "RU"));
+            Collation.create(c, RU, new Collation() {
+                @Override
+                protected int xCompare(String a, String b) {
+                    return collator.compare(a, b);
+                }
+            });
+        } catch (SQLException | RuntimeException ex) {
+            c.close();
+            throw ex;
+        }
+        return c;
     }
 }
