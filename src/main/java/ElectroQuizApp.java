@@ -14,6 +14,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.Image;
@@ -183,6 +184,9 @@ public class ElectroQuizApp extends Application {
         who.getStyleClass().add("header-muted");
         nameField.setPromptText("Фамилия И. О.");
         nameField.setPrefWidth(200);
+        // только русские буквы; пробел, точка и дефис — для инициалов и двойных фамилий
+        nameField.setTextFormatter(new TextFormatter<String>(change ->
+                change.getControlNewText().matches("[А-Яа-яЁё .-]*") ? change : null));
         nameField.setOnAction(ev -> onStart());
 
         HBox header = new HBox(14, titles, spacer, levelLabel, levelBox, who, nameField);
