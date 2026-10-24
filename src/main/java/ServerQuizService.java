@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Ход теста на сервере — те же правила, что в ElectroQuizApp: два задания по теме, у каждого лимит времени
+ * Ход теста на сервере — те же правила, что в ElectroQuizApp: одно или два задания по теме (Theme.tasks), у каждого лимит времени
  * и число попыток уровня, оценка за задание по номеру удачной попытки, итог по {@link Grading}.
  * Правильные ответы остаются на сервере и уходят в браузер только в сообщении о завершении задания.
  * Состояние активных тестов хранится в памяти (условие и ответы случайны и не восстанавливаются),
@@ -21,7 +21,6 @@ import java.util.function.Supplier;
  */
 final class ServerQuizService {
 
-    static final int TASKS_PER_TEST = 2;                          // как в ElectroQuizApp
     static final int MAX_ACTIVE = 5000;                           // защита памяти от потока «Начать»
     static final Duration IDLE_TTL = Duration.ofHours(3);         // сессии без активности забываются
     static final int GRACE_SEC = 2;                               // запас на задержку сети при проверке времени
@@ -167,7 +166,7 @@ final class ServerQuizService {
             if (ses.finished) return view(ses);
             expireIfNeeded(ses);
             if (!ses.taskDone) throw ServerError.conflict("Сначала завершите текущее задание.");
-            if (ses.grades.size() < TASKS_PER_TEST) {
+            if (ses.grades.size() < ses.theme.tasks) {
                 startTask(ses);
             } else {
                 ses.finalGrade = Grading.finalGrade(ses.grades);
@@ -245,7 +244,7 @@ final class ServerQuizService {
         m.put("theme", ses.theme.title);
         m.put("hasLevels", ses.theme.hasLevels);
         m.put("level", ses.level == null ? null : ses.level.title);
-        m.put("tasksTotal", TASKS_PER_TEST);
+        m.put("tasksTotal", ses.theme.tasks);
         if (ses.message != null) {
             m.put("message", ses.message);
             m.put("messageKind", ses.messageKind);
@@ -277,7 +276,7 @@ final class ServerQuizService {
         m.put("secondsLeft", ses.taskDone ? 0 : Math.max(0, (left + 999) / 1000));
         if (ses.taskDone) {
             m.put("taskGrade", ses.taskGrade);
-            m.put("lastTask", ses.taskNumber >= TASKS_PER_TEST);
+            m.put("lastTask", ses.taskNumber >= ses.theme.tasks);
         }
 
         Map<String, Object> task = new LinkedHashMap<>();

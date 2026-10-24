@@ -6,7 +6,8 @@ import java.util.Random;
 
 /**
  * Темы 1 и 2: цепь E, R1 и R2 || R3; на сложном уровне ещё R4 параллельно R2 и R3.
- * Тема 1 ищет ток источника I, тема 2 — эквивалент цепи: в ней вместо резисторов случайно
+ * Тема 1 ищет токи всех ветвей и напряжения участков (U1 на R1, Uab на параллельном участке),
+ * тема 2 — эквивалент цепи: в ней вместо резисторов случайно
  * могут оказаться конденсаторы (ищем Cэкв) или катушки индуктивности (ищем Lэкв); в одном тесте типы не повторяются.
  * На лёгком уровне номиналы подбираются так, чтобы промежуточный расчёт и ответ были «ровными».
  */
@@ -39,9 +40,21 @@ final class LadderTasks implements TaskGenerator {
             r4 = 10 + rnd.nextInt(91);
             parallel = hard ? el.parallel(r2, r3, r4) : el.parallel(r2, r3);
             zTotal = el.series(r1, parallel);          // эквивалент всей цепи
-        } while (!hard && !isRound(e, parallel, zTotal));   // на лёгком уровне — только «ровные» числа
+        } while (!hard && !isRound(e, r2, r3, parallel, zTotal));   // на лёгком уровне — только «ровные» числа
 
-        Answer answer = findZ ? new Answer(el.total, el.unit, zTotal) : new Answer("I", "А", e / zTotal);
+        List<Answer> answers = new ArrayList<>();
+        if (findZ) {
+            answers.add(new Answer(el.total, el.unit, zTotal));
+        } else {
+            double i1 = e / zTotal;                    // ток источника, он же ток R1
+            double uab = i1 * parallel;                // напряжение на параллельном участке
+            answers.add(new Answer("I1", "А", i1));
+            answers.add(new Answer("I2", "А", uab / r2));
+            answers.add(new Answer("I3", "А", uab / r3));
+            if (hard) answers.add(new Answer("I4", "А", uab / r4));
+            answers.add(new Answer("U1", "В", i1 * r1));
+            answers.add(new Answer("Uab", "В", uab));
+        }
 
         String emf = findZ ? "" : String.format(Locale.US, "E = %d В, ", e);   // в теме 2 ЭДС не нужна
         String values = emf + (hard
@@ -52,15 +65,17 @@ final class LadderTasks implements TaskGenerator {
         String question = findZ
                 ? "Найдите " + el.totalName + " " + el.total + " относительно зажимов источника. "
                         + "Ответ дайте в " + el.unitWords + " с точностью до 0,01. "
-                : "Найдите ток I, потребляемый от источника. Ответ дайте в амперах "
-                        + "с точностью до 0,01. ";
+                : "Найдите токи во всех ветвях (" + (hard ? "I1, I2, I3, I4" : "I1, I2, I3")
+                        + ") и падения напряжения на участках цепи: U1 на резисторе R1 и Uab на параллельном "
+                        + "участке между узлами a и b. Ответы дайте в амперах и вольтах с точностью до 0,01. ";
         String text = "Для цепи, показанной на рисунке, " + values + ". "
                 + question + "На выполнение задания отводится " + timeText + ".";
         String hint = findZ
                 ? "Проверьте расчёт " + el.hintName + " и попробуйте ещё раз."
-                : "Проверьте расчёт общего сопротивления цепи и тока по закону Ома и попробуйте ещё раз.";
+                : "Проверьте расчёт: общее сопротивление цепи, ток I1 по закону Ома, напряжения U1 и Uab, "
+                        + "затем токи ветвей. Попробуйте ещё раз.";
 
-        return new Task(level.title.toLowerCase() + " уровень", text, List.of(answer), hint,
+        return new Task(level.title.toLowerCase() + " уровень", text, answers, hint,
                 new LadderScheme(e, r1, r2, r3, r4, hard, findZ, el));
     }
 
@@ -74,11 +89,15 @@ final class LadderTasks implements TaskGenerator {
     }
 
     /**
-     * Лёгкий уровень: эквивалент параллельных ветвей — целое число, а ответ (Z, Cэкв, Lэкв или ток I) —
+     * Лёгкий уровень: эквивалент параллельных ветвей — целое число, а ответ (Z, Cэкв, Lэкв или ток I1) —
      * не больше одного знака после запятой, чтобы ученик думал о методе, а не о калькуляторе.
+     * В теме 1 тогда U1 и Uab тоже с одним знаком, а токи ветвей I2 и I3 — не больше чем с двумя.
      */
-    private boolean isRound(int e, double parallel, double zTotal) {
-        return isWhole(parallel) && isWhole(10 * (findZ ? zTotal : e / zTotal));
+    private boolean isRound(int e, int r2, int r3, double parallel, double zTotal) {
+        if (!isWhole(parallel)) return false;
+        if (findZ) return isWhole(10 * zTotal);
+        double i1 = e / zTotal, uab = i1 * parallel;
+        return isWhole(10 * i1) && isWhole(100 * uab / r2) && isWhole(100 * uab / r3);
     }
 
     private static boolean isWhole(double v) {

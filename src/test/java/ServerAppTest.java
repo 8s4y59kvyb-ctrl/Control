@@ -92,7 +92,7 @@ class ServerAppTest {
         assertTrue(st.get("task").get("scheme").get("ops").size() > 5);
         assertEquals(200, send("GET", "/api/sessions/" + id, null, null).statusCode());
 
-        for (int n = 0; n < 2; n++) {
+        for (int n = 0; n < Theme.OHM.tasks; n++) {
             st = json(send("POST", "/api/sessions/" + id + "/answer",
                     answerBody(ServerTestSupport.answers(Theme.OHM, Level.EASY, SEED, n)), null));
             assertEquals("task_done", st.get("status").asText());

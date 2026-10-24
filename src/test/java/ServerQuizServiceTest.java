@@ -50,7 +50,8 @@ class ServerQuizServiceTest {
         assertEquals("Иванов", st.get("surname"));
         assertEquals(1, st.get("attemptsMax"));
 
-        for (int n = 0; n < 2; n++) {
+        assertEquals(1, st.get("tasksTotal"));                          // в теме 1 одно задание
+        for (int n = 0; n < Theme.OHM.tasks; n++) {
             st = quiz.answer(id, ServerTestSupport.answers(Theme.OHM, Level.EASY, SEED, n));
             assertEquals("task_done", st.get("status"));
             assertEquals(5, st.get("taskGrade"));
@@ -91,14 +92,14 @@ class ServerQuizServiceTest {
 
     @Test
     void failedTaskMakesFinalGradeTwo() {
-        Map<String, Object> st = start(Theme.OHM, Level.HARD);
+        Map<String, Object> st = start(Theme.EQUIVALENT, Level.HARD);   // нужны два задания
         String id = (String) st.get("sessionId");
-        List<String> bad = ServerTestSupport.wrong(ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 0));
+        List<String> bad = ServerTestSupport.wrong(ServerTestSupport.answers(Theme.EQUIVALENT, Level.HARD, SEED, 0));
         for (int i = 0; i < 3; i++) st = quiz.answer(id, bad);
         assertEquals(2, st.get("taskGrade"));
         assertTrue(((String) st.get("message")).contains("Правильный ответ"));   // теперь можно показать
         quiz.next(id);
-        st = quiz.answer(id, ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 1));
+        st = quiz.answer(id, ServerTestSupport.answers(Theme.EQUIVALENT, Level.HARD, SEED, 1));
         assertEquals(5, st.get("taskGrade"));
         st = quiz.next(id);
         assertEquals("2", map(st.get("result")).get("finalGrade"));   // одна двойка — итог 2, а не среднее
@@ -107,7 +108,7 @@ class ServerQuizServiceTest {
 
     @Test
     void invalidInputDoesNotSpendAttempt() {
-        Map<String, Object> st = start(Theme.OHM, Level.EASY);
+        Map<String, Object> st = start(Theme.EQUIVALENT, Level.EASY);
         String id = (String) st.get("sessionId");
         st = quiz.answer(id, List.of("abc"));
         assertEquals(0, st.get("attempt"));
@@ -166,7 +167,7 @@ class ServerQuizServiceTest {
     void protocolErrors() {
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.state("нет")).status);
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.answer(null, List.of("1"))).status);
-        Map<String, Object> st = start(Theme.OHM, Level.EASY);
+        Map<String, Object> st = start(Theme.EQUIVALENT, Level.EASY);
         String id = (String) st.get("sessionId");
         assertEquals(409, assertThrows(ServerError.class, () -> quiz.next(id)).status);   // задание ещё не закончено
         quiz.answer(id, List.of("1"));                                                   // неверно: одна попытка
@@ -201,9 +202,9 @@ class ServerQuizServiceTest {
                 final int k = i;
                 jobs.add(pool.submit(() -> {
                     Map<String, Object> st = svc.start("КМ-2" + (k % 3), "Курсант" + "абвгдежзик".charAt(k / 10) + "абвгдежзик".charAt(k % 10),
-                            Theme.OHM, Level.EASY);
+                            Theme.EQUIVALENT, Level.EASY);
                     String id = (String) st.get("sessionId");
-                    for (int t = 0; t < ServerQuizService.TASKS_PER_TEST; t++) {
+                    for (int t = 0; t < Theme.EQUIVALENT.tasks; t++) {
                         svc.answer(id, List.of("0"));                   // неверно -> 2, одна попытка
                         st = svc.next(id);
                     }
@@ -220,8 +221,8 @@ class ServerQuizServiceTest {
 
     @Test
     void sameCadetWithTwoTabsGetsIndependentSessions() {
-        String a = (String) start(Theme.OHM, Level.EASY).get("sessionId");
-        String b = (String) start(Theme.OHM, Level.EASY).get("sessionId");
+        String a = (String) start(Theme.EQUIVALENT, Level.EASY).get("sessionId");
+        String b = (String) start(Theme.EQUIVALENT, Level.EASY).get("sessionId");
         assertFalse(a.equals(b));
         quiz.answer(a, List.of("0"));
         assertEquals("task", quiz.state(b).get("status"));

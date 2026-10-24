@@ -19,6 +19,7 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -36,7 +37,7 @@ import java.util.Random;
 /**
  * Контроль знаний по электротехнике — окно программы.
  * Курсанту показывается цепь, нужно найти ток источника I (или другую величину по теме).
- * Каждый тест состоит из двух заданий; итоговая оценка — среднее за два, при любой двойке итог 2.
+ * Тест состоит из одного задания (тема 1) или двух; итоговая оценка — среднее за задания, при любой двойке итог 2.
  * На выполнение каждого задания отводится время темы; если время вышло — оценка 2.
  * Отсчёт времени начинается после ввода фамилии и нажатия «Начать тестирование».
  *
@@ -47,7 +48,6 @@ public class ElectroQuizApp extends Application {
 
     private static final int MAX_DOTS = 3;
     private static final int WARN_SEC = 60;
-    private static final int TASKS_PER_TEST = 2;   // в каждой теме курсант решает два задания
 
     private final Random rnd = new Random();
     private final ResultLog resultLog = ResultLog.inDocuments();    // журнал итоговых оценок
@@ -77,12 +77,8 @@ public class ElectroQuizApp extends Application {
     private final Label startHint = new Label();
     private final ComboBox<Theme> themeBox = new ComboBox<>();
     private final Label themeLabel = new Label();
-    private final Label answerSymbol = new Label("I =");
-    private final Label answerUnit = new Label("А");
-    private final TextField answerField2 = new TextField();     // второе значение (тема 3)
-    private final Label answerSymbol2 = new Label("I2 =");
-    private final Label answerUnit2 = new Label("А");
-    private HBox answerGroup2;
+    private final List<TextField> answerFields = new ArrayList<>();   // по полю на каждую искомую величину
+    private final FlowPane inputRow = new FlowPane(14, 10);           // поля ответа и кнопки, с переносом
     private Label levelLabelNode;                               // «Сложность:» (скрывается в теме 3)
     private HBox levelBoxNode;                                  // переключатель сложности
     private VBox startCard;
@@ -93,7 +89,6 @@ public class ElectroQuizApp extends Application {
     private final Label resultNote = new Label();
     private final Label taskTitle = new Label();
     private final Label taskText = new Label();
-    private final TextField answerField = new TextField();
     private final Button checkBtn = new Button("Проверить");
     private final Button nextBtn = new Button("Следующее задание");
     private final Button newTestBtn = new Button("Новый тест");
@@ -203,8 +198,9 @@ public class ElectroQuizApp extends Application {
         startTitle.getStyleClass().add("start-title");
         Label startText = new Label(
                 "Введите фамилию в поле «Курсант» (вверху справа), выберите тему и сложность и нажмите "
-                        + "«Начать тестирование». На задание отводится 7 минут, а в теме «Делители тока "
-                        + "и напряжения» (в ней нет выбора сложности, два задания) — 5 минут на каждое. "
+                        + "«Начать тестирование». В теме «Закон Ома и Кирхгофа» одно задание на 10 минут, "
+                        + "в теме «Эквивалентные преобразования» — два задания по 7 минут, в теме «Делители тока "
+                        + "и напряжения» (в ней нет выбора сложности) — два задания по 5 минут. "
                         + "Время пойдёт сразу после нажатия кнопки.");
         startText.setWrapText(true);
         startText.getStyleClass().add("task-text");
@@ -255,10 +251,6 @@ public class ElectroQuizApp extends Application {
         taskText.setWrapText(true);
         taskText.getStyleClass().add("task-text");
 
-        answerField.setPromptText("Например, 1,25");
-        answerField.setPrefWidth(200);
-        answerField.setOnAction(ev -> checkAnswer());
-        answerUnit.getStyleClass().add("unit");
 
         checkBtn.getStyleClass().add("primary-btn");
         checkBtn.setOnAction(ev -> checkAnswer());
@@ -266,18 +258,9 @@ public class ElectroQuizApp extends Application {
         nextBtn.setOnAction(ev -> onNext());
         nextBtn.setDisable(true);
 
-        // второе поле ответа: показывается, когда в задании два значения (тема 3: I1 и I2 либо U1 и U2)
-        answerField2.setPromptText("Например, 1,25");
-        answerField2.setPrefWidth(120);
-        answerField2.setOnAction(ev -> checkAnswer());
-        answerUnit2.getStyleClass().add("unit");
-        answerGroup2 = new HBox(8, answerSymbol2, answerField2, answerUnit2);
-        answerGroup2.setAlignment(Pos.CENTER_LEFT);
-        answerGroup2.setVisible(false);
-        answerGroup2.setManaged(false);
-
-        HBox inputRow = new HBox(10, answerSymbol, answerField, answerUnit, answerGroup2, checkBtn, nextBtn);
+        // поля ответа создаются в startTask под каждое задание; длинный ряд переносится по ширине условия
         inputRow.setAlignment(Pos.CENTER_LEFT);
+        inputRow.prefWrapLengthProperty().bind(taskText.widthProperty());
 
         feedback.setWrapText(true);
         feedback.getStyleClass().add("feedback");
@@ -289,7 +272,7 @@ public class ElectroQuizApp extends Application {
         workBox.setVisible(false);
         workBox.setManaged(false);
 
-        // --- итоговая карточка (после двух заданий) ---
+        // --- итоговая карточка (после последнего задания) ---
         Label resultTitle = new Label("Тестирование завершено");
         resultTitle.getStyleClass().add("start-title");
         resultInfo.setWrapText(true);
@@ -406,22 +389,7 @@ public class ElectroQuizApp extends Application {
         themeLabel.setText("Тема: " + theme.title);
         taskText.setText(task.text());
 
-        // поля ответа: одно (I или Z) либо два (тема 3: I1 и I2 либо U1 и U2)
-        List<Answer> answers = task.answers();
-        boolean two = answers.size() > 1;
-        answerSymbol.setText(answers.get(0).symbol() + " =");
-        answerUnit.setText(answers.get(0).unit());
-        answerGroup2.setVisible(two);
-        answerGroup2.setManaged(two);
-        if (two) {
-            answerSymbol2.setText(answers.get(1).symbol() + " =");
-            answerUnit2.setText(answers.get(1).unit());
-        }
-        answerField.setPrefWidth(two ? 120 : 200);
-        answerField.clear();
-        answerField.setDisable(false);
-        answerField2.clear();
-        answerField2.setDisable(false);
+        buildAnswerFields(task.answers());
 
         checkBtn.setDisable(false);
         nextBtn.setDisable(true);
@@ -445,19 +413,42 @@ public class ElectroQuizApp extends Application {
         timer.setCycleCount(Animation.INDEFINITE);
         timer.play();
 
-        answerField.requestFocus();
+        answerFields.get(0).requestFocus();
     }
 
-    /** Кнопка после задания: следующее задание либо (после двух заданий) итог. */
+    /**
+     * Поля ответа по числу искомых величин: одно (тема 2), два (тема 3: I1 и I2 либо U1 и U2)
+     * или до шести (тема 1: токи ветвей и напряжения участков). За полями идут кнопки.
+     */
+    private void buildAnswerFields(List<Answer> answers) {
+        answerFields.clear();
+        inputRow.getChildren().clear();
+        for (Answer a : answers) {
+            TextField field = new TextField();
+            field.setPromptText("Например, 1,25");
+            field.setPrefWidth(answers.size() > 1 ? 110 : 200);
+            field.setOnAction(ev -> checkAnswer());
+            Label symbol = new Label(a.symbol() + " =");
+            Label unit = new Label(a.unit());
+            unit.getStyleClass().add("unit");
+            HBox group = new HBox(8, symbol, field, unit);
+            group.setAlignment(Pos.CENTER_LEFT);
+            answerFields.add(field);
+            inputRow.getChildren().add(group);
+        }
+        inputRow.getChildren().addAll(checkBtn, nextBtn);
+    }
+
+    /** Кнопка после задания: следующее задание либо (после последнего задания темы) итог. */
     private void onNext() {
-        if (taskGrades.size() >= TASKS_PER_TEST) {
+        if (taskGrades.size() >= theme.tasks) {
             showResult();
         } else {
             startTask();
         }
     }
 
-    /** Итог теста: среднее за два задания; если хотя бы за одно стоит 2, итоговая оценка 2. */
+    /** Итог теста: среднее за задания; если хотя бы за одно стоит 2, итоговая оценка 2. */
     private void showResult() {
         stopTimer();
         StringBuilder sb = new StringBuilder("Курсант: " + nameField.getText().trim()
@@ -473,9 +464,12 @@ public class ElectroQuizApp extends Application {
         resultGrade.setText(Grading.format(finalGrade));
         resultGrade.getStyleClass().removeAll("grade-good", "grade-bad");
         resultGrade.getStyleClass().add(finalGrade >= 3 ? "grade-good" : "grade-bad");
-        String note = anyTwo
+        String note = theme.tasks == 1
+                ? "Итоговая оценка — оценка за задание."
+                : anyTwo
                 ? "За одно из заданий поставлена оценка 2, поэтому итоговая оценка — 2."
-                : "Итоговая оценка — среднее за два задания: " + Grading.format(Grading.average(taskGrades)) + ".";
+                : "Итоговая оценка — среднее за " + theme.tasks + " задания: "
+                        + Grading.format(Grading.average(taskGrades)) + ".";
         try {
             int number = resultLog.append(nameField.getText(), theme, level, finalGrade,
                     java.time.LocalDateTime.now());
@@ -530,15 +524,13 @@ public class ElectroQuizApp extends Application {
 
     private void checkAnswer() {
         if (!started || taskFinished) return;
-        boolean two = task.answers().size() > 1;
-        double[] values;
+        boolean many = answerFields.size() > 1;
+        double[] values = new double[answerFields.size()];
         try {
-            values = two
-                    ? new double[]{Answer.parse(answerField.getText()), Answer.parse(answerField2.getText())}
-                    : new double[]{Answer.parse(answerField.getText())};
+            for (int i = 0; i < values.length; i++) values[i] = Answer.parse(answerFields.get(i).getText());
         } catch (NumberFormatException ex) {
-            setFeedback(two ? "Введите оба числа, например 1,25. Попытка не потрачена."
-                            : "Введите число, например 1,25. Попытка не потрачена.", "warn");
+            setFeedback(many ? "Заполните все поля числами, например 1,25. Попытка не потрачена."
+                             : "Введите число, например 1,25. Попытка не потрачена.", "warn");
             return;
         }
         attempt++;
@@ -553,10 +545,10 @@ public class ElectroQuizApp extends Application {
                                                       : "Попытки закончились. ";
             finishTask(2, prefix + "Правильный ответ: " + task.correctText() + ".");
         } else {
-            setFeedback(two
+            setFeedback(many
                     ? "Неверно: верно введено " + right + " из " + values.length + " значений. " + task.hint()
                     : "Неверно. " + task.hint(), "bad");
-            answerField.selectAll();
+            answerFields.get(0).selectAll();
             updateAttempts();
         }
     }
@@ -568,14 +560,13 @@ public class ElectroQuizApp extends Application {
         gradeValue.getStyleClass().removeAll("grade-good", "grade-bad");
         gradeValue.getStyleClass().add(grade >= 3 ? "grade-good" : "grade-bad");
         setFeedback(message, grade >= 3 ? "ok" : "bad");
-        answerField.setDisable(true);
-        answerField2.setDisable(true);
+        for (TextField field : answerFields) field.setDisable(true);
         checkBtn.setDisable(true);
         nextBtn.setDisable(false);
         // запоминаем оценку за задание; после последнего задания кнопка ведёт к итогу
         taskGrades.add(grade);
         taskNames.add(task.kind());
-        nextBtn.setText(taskGrades.size() >= TASKS_PER_TEST
+        nextBtn.setText(taskGrades.size() >= theme.tasks
                 ? "Завершить тестирование" : "Следующее задание");
         updateAttempts();
         updateLevelLock();

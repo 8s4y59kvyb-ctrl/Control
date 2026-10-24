@@ -17,18 +17,21 @@ class LadderTasksTest {
     private static final double EPS = 1e-9;
 
     @RepeatedTest(50)
-    void ohmEasyAnswerIsSourceCurrent() {
+    void ohmEasyAsksBranchCurrentsAndVoltages() {
         Task task = Theme.OHM.newGenerator().next(Level.EASY, new Random());
         LadderScheme s = (LadderScheme) task.scheme();
-        double expected = s.e() / (s.r1() + s.r2() * s.r3() / (s.r2() + s.r3()));
+        double i1 = s.e() / (s.r1() + s.r2() * s.r3() / (s.r2() + s.r3()));
+        double uab = s.e() - i1 * s.r1();
 
-        assertEquals(1, task.answers().size());
-        assertEquals("I", task.answers().get(0).symbol());
-        assertEquals("А", task.answers().get(0).unit());
-        assertEquals(expected, task.answers().get(0).value(), EPS);
+        assertAnswers(task, new String[]{"I1", "I2", "I3", "U1", "Uab"},
+                new String[]{"А", "А", "А", "В", "В"},
+                new double[]{i1, uab / s.r2(), uab / s.r3(), i1 * s.r1(), uab});
         assertFalse(s.withR4());
         assertFalse(task.text().contains("R4"));
         assertTrue(task.text().contains("E = "));
+        for (Answer a : task.answers()) {
+            assertEquals(Math.rint(a.value() * 100), a.value() * 100, 1e-6, a.symbol() + " — не больше двух знаков");
+        }
     }
 
     @RepeatedTest(50)
@@ -36,10 +39,17 @@ class LadderTasksTest {
         Task task = Theme.OHM.newGenerator().next(Level.HARD, new Random());
         LadderScheme s = (LadderScheme) task.scheme();
         double parallel = 1 / (1 / s.r2() + 1 / s.r3() + 1 / s.r4());
+        double i1 = s.e() / (s.r1() + parallel);
+        double uab = i1 * parallel;
 
         assertTrue(s.withR4());
         assertTrue(task.text().contains("R4 = " + (int) s.r4() + " Ом"));
-        assertEquals(s.e() / (s.r1() + parallel), task.answers().get(0).value(), EPS);
+        assertAnswers(task, new String[]{"I1", "I2", "I3", "I4", "U1", "Uab"},
+                new String[]{"А", "А", "А", "А", "В", "В"},
+                new double[]{i1, uab / s.r2(), uab / s.r3(), uab / s.r4(), i1 * s.r1(), uab});
+        // законы Кирхгофа: ток I1 делится между ветвями, U1 + Uab = E
+        assertEquals(i1, uab / s.r2() + uab / s.r3() + uab / s.r4(), EPS);
+        assertEquals(s.e(), task.answers().get(4).value() + task.answers().get(5).value(), EPS);
     }
 
     @RepeatedTest(50)
@@ -133,7 +143,7 @@ class LadderTasksTest {
         assertEquals("сложный уровень", hard.kind());
         assertTrue(easy.hint().contains("закону Ома"));
         assertTrue(hard.hint().contains(((LadderScheme) hard.scheme()).element().hintName));
-        assertTrue(easy.text().endsWith("отводится 7 минут."));
+        assertTrue(easy.text().endsWith("отводится 10 минут."));
     }
 
     @Test
@@ -141,6 +151,16 @@ class LadderTasksTest {
         Task a = Theme.OHM.newGenerator().next(Level.HARD, new Random(42));
         Task b = Theme.OHM.newGenerator().next(Level.HARD, new Random(42));
         assertEquals(a, b);
+    }
+
+    private static void assertAnswers(Task task, String[] symbols, String[] units, double[] values) {
+        assertEquals(symbols.length, task.answers().size());
+        for (int i = 0; i < symbols.length; i++) {
+            Answer a = task.answers().get(i);
+            assertEquals(symbols[i], a.symbol());
+            assertEquals(units[i], a.unit());
+            assertEquals(values[i], a.value(), EPS, symbols[i]);
+        }
     }
 
     private static void assertInRange(double v, int min, int max) {

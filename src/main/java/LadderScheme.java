@@ -5,7 +5,7 @@ import java.util.Random;
 /**
  * Схема тем 1 и 2: источник E, R1 в верхнем проводе, R2 и R3 — вертикальные ветви.
  * withR4 — сложный уровень: добавлен диагональный элемент R4, параллельный R2 и R3.
- * findZ — тема 2: ищем эквивалент цепи, значение E и ток I не показываем.
+ * findZ — тема 2: ищем эквивалент цепи, значение E, токи и узлы a, b не показываем.
  * element — что стоит на месте R1…R4: резисторы, конденсаторы (C1…C4) или катушки (L1…L4);
  * r1…r4 — их номиналы в Ом, мкФ или мГн.
  */
@@ -45,12 +45,11 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
         // диагональный элемент 4: от верхнего узла ветви 2 до правого нижнего угла схемы,
         // электрически параллельно ветвям 2 и 3
         double cx = (XA + XB) / 2, cy = (TOP + BOTTOM) / 2;
+        double dx = XB - XA, dy = BOTTOM - TOP;
+        double len = Math.hypot(dx, dy);
+        double ux = dx / len, uy = dy / len;
+        double half = 50;                                       // половина длины корпуса
         if (withR4) {
-            double dx = XB - XA, dy = BOTTOM - TOP;
-            double len = Math.hypot(dx, dy);
-            double ux = dx / len, uy = dy / len;
-            double half = 50;                                   // половина длины корпуса
-
             g.setStroke(WIRE);
             g.setLineWidth(2.2);
             g.strokeLine(XA, TOP, cx - half * ux, cy - half * uy);
@@ -62,12 +61,24 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
             part(g, cx, cy, Math.toDegrees(Math.atan2(dy, dx)), half, 12);
         }
 
-        // стрелка тока (только в теме 1)
+        // стрелки токов I1…I4 (только в теме 1): I1 — над R1, токи ветвей — у нижних выводов
         g.setFill(BLUE);
         g.setStroke(BLUE);
+        double i4x = 0, i4y = 0;                                // точка подписи I4
         if (!findZ) {
             g.strokeLine(100, TOP - 22, 130, TOP - 22);
             g.fillPolygon(new double[]{130, 122, 122}, new double[]{TOP - 22, TOP - 27, TOP - 17}, 3);
+            Scheme.arrow(g, XA + 10, 208, XA + 10, 232, BLUE);
+            Scheme.arrow(g, XB + 10, 208, XB + 10, 232, BLUE);
+            if (withR4) {
+                // вдоль нижнего вывода R4, со стороны ветви 2
+                double ex = cx + half * ux, ey = cy + half * uy;    // конец корпуса R4
+                double nx = -uy * 10, ny = ux * 10;                // сдвиг от провода влево-вниз
+                Scheme.arrow(g, ex + (XB - ex) * 0.2 + nx, ey + (BOTTOM - ey) * 0.2 + ny,
+                        ex + (XB - ex) * 0.7 + nx, ey + (BOTTOM - ey) * 0.7 + ny, BLUE);
+                i4x = ex + (XB - ex) * 0.45 + 2.4 * nx - 8;
+                i4y = ey + (BOTTOM - ey) * 0.45 + 2.4 * ny + 5;
+            }
         }
 
         // подписи
@@ -93,7 +104,13 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
             g.setBoldFont(20);
             g.fillText(element.total + " = ?", 110, 160);
         } else {
-            g.fillText("I", 109, TOP - 32);
+            g.fillText("I1", 105, TOP - 32);
+            g.fillText("I2", XA + 19, 228);
+            g.fillText("I3", XB + 19, 228);
+            if (withR4) g.fillText("I4", i4x, i4y);
+            g.setFill(LABEL);                                   // узлы параллельного участка
+            g.fillText("a", XA - 16, TOP - 8);
+            g.fillText("b", XA - 16, BOTTOM + 20);
         }
         g.setFill(PLUS);
         g.fillText("+", XS + 22, 134);

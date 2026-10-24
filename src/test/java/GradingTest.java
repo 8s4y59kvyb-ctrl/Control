@@ -53,7 +53,11 @@ class GradingTest {
 
     @Test
     void themeTimeLimits() {
-        assertEquals(7 * 60, Theme.OHM.timeLimitSec);
+        assertEquals(10 * 60, Theme.OHM.timeLimitSec);
+        assertEquals("10 минут", Theme.OHM.minutesText());
+        assertEquals(1, Theme.OHM.tasks);                   // в теме 1 одно задание
+        assertEquals(2, Theme.EQUIVALENT.tasks);
+        assertEquals(2, Theme.DIVIDERS.tasks);
         assertEquals(7 * 60, Theme.EQUIVALENT.timeLimitSec);
         assertEquals(5 * 60, Theme.DIVIDERS.timeLimitSec);
         assertEquals("5 минут", Theme.DIVIDERS.minutesText());
