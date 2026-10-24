@@ -78,6 +78,7 @@ public class ElectroQuizApp extends Application {
     private final ToggleButton hardBtn = new ToggleButton("Сложный · 3 попытки");
     private final Button startBtn = new Button("Начать тестирование");
     private final Label startHint = new Label();
+    private final Label themeInfo = new Label();       // описание выбранной темы на стартовой карточке
     private final ComboBox<Theme> themeBox = new ComboBox<>();
     private final Label themeLabel = new Label();
     private final List<TextField> answerFields = new ArrayList<>();   // по полю на каждую искомую величину
@@ -203,16 +204,12 @@ public class ElectroQuizApp extends Application {
         startTitle.getStyleClass().add("start-title");
         Label startText = new Label(
                 "Введите фамилию в поле «Курсант» (вверху справа), выберите тему и сложность и нажмите "
-                        + "«Начать тестирование». В теме «Закон Ома и Кирхгофа» одно задание: 10 минут на лёгком "
-                        + "уровне, 15 минут на сложном; "
-                        + "в теме «Эквивалентные преобразования» — два задания по 7 минут, в теме «Делители тока "
-                        + "и напряжения» (в ней нет выбора сложности) — два задания по 5 минут. "
-                        + "В теме «Переменный ток» два задания (сначала катушка, затем конденсатор): 7 минут на лёгком уровне "
-                        + "(5 частот), 10 минут на сложном (6 частот). "
-                        + "В теме «Последовательный колебательный контур» два задания по 10 минут. "
-                        + "Время пойдёт сразу после нажатия кнопки.");
+                        + "«Начать тестирование». Время пойдёт сразу после нажатия кнопки.");
         startText.setWrapText(true);
         startText.getStyleClass().add("task-text");
+        themeInfo.setText(theme.description());           // описание выбранной темы
+        themeInfo.setWrapText(true);
+        themeInfo.getStyleClass().add("task-text");
         // меню выбора темы
         Label themeCaption = new Label("Тема:");
         themeCaption.getStyleClass().add("card-title");
@@ -223,13 +220,14 @@ public class ElectroQuizApp extends Application {
         themeBox.valueProperty().addListener((obs, old, now) -> {
             if (now == null) return;
             theme = now;
+            themeInfo.setText(theme.description());
             startHint.setText(theme.ready() ? "" : "Тема в разработке: заданий пока нет, выберите другую тему.");
             startBtn.setDisable(!theme.ready());
             taskLevel = theme.effectiveLevel(level);
             updateLevelControls();                 // в теме 3 выбор сложности скрыт
             if (!started) showIdleState();         // показываем время и правила выбранной темы
         });
-        VBox themeRow = new VBox(6, themeCaption, themeBox);
+        VBox themeRow = new VBox(6, themeCaption, themeBox, themeInfo);
 
         startBtn.getStyleClass().addAll("primary-btn", "start-btn");
         startBtn.setOnAction(ev -> onStart());

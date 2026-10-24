@@ -87,8 +87,9 @@ function selectedLevel() {
   return r ? r.value : null;
 }
 
-/** Показывает/скрывает выбор сложности и правила выбранного уровня. */
+/** Описание выбранной темы, выбор сложности (если он есть) и правила выбранного уровня. */
 function syncStartForm() {
+  $('theme-info').textContent = selectedTheme().description;
   const hasLevels = selectedTheme().hasLevels;
   $('level-box').hidden = !hasLevels;
   for (const l of $('levels').children) l.classList.toggle('on', l.firstChild.checked);

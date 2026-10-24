@@ -187,6 +187,7 @@ final class ServerApp {
             m.put("id", t.name());
             m.put("title", t.toString());
             m.put("hasLevels", t.hasLevels);
+            m.put("description", t.description());
             m.put("ready", t.ready());                    // тему «в разработке» не выбрать
             m.put("timeLimitSec", t.timeLimitSec(t.effectiveLevel(Level.EASY)));      // лёгкий уровень
             m.put("timeLimitHardSec", t.timeLimitSec(Level.HARD));

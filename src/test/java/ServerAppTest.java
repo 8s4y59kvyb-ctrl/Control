@@ -78,6 +78,7 @@ class ServerAppTest {
         assertTrue(meta.get("themes").get(0).get("ready").asBoolean());
         assertTrue(meta.get("themes").get(3).get("ready").asBoolean());      // переменный ток — готов
         assertEquals("RESONANCE", meta.get("themes").get(4).get("id").asText());
+        assertTrue(meta.get("themes").get(4).get("description").asText().contains("резонансную частоту"));
         assertEquals(2, meta.get("levels").size());
     }
 

@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Проверяет генерацию задач темы 5: ответы f0, ρ, Q и UL по формулам последовательного контура,
- * добротность от 2 до 10, частота задания не резонансная, график UL(f) при любом исходе.
+ * целые ρ, Q и ω0, частота задания не резонансная, график UL(f) при любом исходе.
  */
 class ResonanceTasksTest {
 
@@ -34,7 +34,13 @@ class ResonanceTasksTest {
             assertEquals(q, a.get(2).value(), 1e-9 * q);
             assertEquals(ul, a.get(3).value(), 1e-9 * ul);
 
-            assertTrue(q >= 2 && q <= 10);
+            assertTrue(List.of(2.0, 4.0, 5.0, 10.0).contains(Math.rint(q)));    // красивые числа
+            assertEquals(Math.rint(q), q, 1e-9);
+            assertEquals(Math.rint(rho), rho, 1e-9);
+            double w0 = 2 * Math.PI * f0;
+            assertTrue(List.of(500.0, 1000.0, 2000.0, 5000.0).contains(Math.rint(w0)));
+            assertEquals(Math.rint(w0), w0, 1e-6);
+            assertTrue(s.r() >= 2);
             assertEquals(0, s.f() % 10);
             assertNotEquals(Math.round(f0), s.f());
             assertEquals("колебательный контур", task.kind());

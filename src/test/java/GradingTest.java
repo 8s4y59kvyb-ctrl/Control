@@ -75,6 +75,14 @@ class GradingTest {
     }
 
     @Test
+    void themeDescriptions() {
+        assertTrue(Theme.OHM.description().endsWith("На задание — 10 минут на лёгком уровне, 15 минут на сложном."));
+        assertTrue(Theme.EQUIVALENT.description().endsWith("На каждое задание — 7 минут."));
+        assertTrue(Theme.DIVIDERS.description().endsWith("На каждое задание — 5 минут."));
+        assertTrue(Theme.RESONANCE.description().startsWith("Два задания: в последовательном контуре"));
+    }
+
+    @Test
     void themeTimeLimits() {
         assertEquals(10 * 60, Theme.OHM.timeLimitSec(Level.EASY));
         assertEquals(15 * 60, Theme.OHM.timeLimitSec(Level.HARD));  // сложный уровень темы 1 — 15 минут

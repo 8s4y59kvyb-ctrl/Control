@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
@@ -7,17 +8,31 @@ import java.util.function.Function;
  * Тема 5: последовательный колебательный контур R–L–C на переменном напряжении U частотой f.
  * Курсант находит резонансную частоту f0 = 1/(2π√(LC)), волновое сопротивление ρ = √(L/C),
  * добротность Q = ρ/R и напряжение на катушке UL = I·XL на частоте f, где I = U/√(R² + (XL − XC)²).
- * Номиналы «круглые», добротность от 2 до 10, частота f — круглая (до 10 Гц), не равна резонансной.
+ * Номиналы подобраны так, что ρ, Q и ω0 = 2πf0 — целые (ω0 — 500, 1000, 2000 или 5000 рад/с, Q — 2, 4, 5 или 10);
+ * частота f — круглая (до 10 Гц), не равна резонансной.
  * После задания при любом исходе вместо схемы показывается график UL(f) ({@link ResonanceChart}).
  */
 final class ResonanceTasks implements TaskGenerator {
 
-    private static final int[] L_MH = {10, 20, 50, 100, 200};     // индуктивность, мГн
-    private static final int[] C_UF = {1, 2, 5, 10, 20};          // ёмкость, мкФ
-    private static final int[] R_OHM = {5, 10, 20, 50};           // сопротивление, Ом
+    private static final int[] OMEGA0 = {500, 1000, 2000, 5000};  // резонансная угловая частота, рад/с
+    private static final int[] RHO = {10, 20, 50, 100, 200};      // волновое сопротивление, Ом
+    private static final int[] Q = {2, 4, 5, 10};                 // добротность: пик на графике хорошо виден
+    private static final int R_MIN = 2;                           // Ом
     private static final int[] U_V = {10, 20, 50};                // напряжение источника, В
     private static final double[] F_RATIO = {0.5, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.5};   // f / f0
-    private static final double Q_MIN = 2, Q_MAX = 10;            // чтобы резонансный пик был виден на графике
+
+    /** Пары {L, мГн; C, мкФ; ρ, Ом}, у которых L = ρ/ω0 и C = 1/(ρω0) — целые. */
+    private static final List<int[]> CIRCUITS = new ArrayList<>();
+
+    static {
+        for (int w : OMEGA0) {
+            for (int rho : RHO) {
+                if (rho * 1000 % w == 0 && 1_000_000 % (rho * w) == 0) {
+                    CIRCUITS.add(new int[]{rho * 1000 / w, 1_000_000 / (rho * w), rho});
+                }
+            }
+        }
+    }
 
     private final Function<Level, String> timeText;    // «10 минут» по уровню задания
 
@@ -27,12 +42,12 @@ final class ResonanceTasks implements TaskGenerator {
 
     @Override
     public Task next(Level level, Random rnd) {
-        int l, c, r;
+        int[] lc = CIRCUITS.get(rnd.nextInt(CIRCUITS.size()));
+        int l = lc[0], c = lc[1], r;
         do {
-            l = L_MH[rnd.nextInt(L_MH.length)];
-            c = C_UF[rnd.nextInt(C_UF.length)];
-            r = R_OHM[rnd.nextInt(R_OHM.length)];
-        } while (quality(l, c, r) < Q_MIN || quality(l, c, r) > Q_MAX);
+            int q = Q[rnd.nextInt(Q.length)];
+            r = lc[2] % q == 0 ? lc[2] / q : 0;
+        } while (r < R_MIN);
         int u = U_V[rnd.nextInt(U_V.length)];
         double f0 = resonance(l, c);
         int f = (int) Math.round(f0 * F_RATIO[rnd.nextInt(F_RATIO.length)] / 10) * 10;
