@@ -144,6 +144,8 @@ class LadderTasksTest {
         assertTrue(easy.hint().contains("закону Ома"));
         assertTrue(hard.hint().contains(((LadderScheme) hard.scheme()).element().hintName));
         assertTrue(easy.text().endsWith("отводится 10 минут."));
+        assertTrue(Theme.OHM.newGenerator().next(Level.HARD, new Random(1)).text().endsWith("отводится 15 минут."));
+        assertTrue(hard.text().endsWith("отводится 7 минут."));          // тема 2: одно время на оба уровня
     }
 
     @Test

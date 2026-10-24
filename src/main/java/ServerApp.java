@@ -187,7 +187,8 @@ final class ServerApp {
             m.put("id", t.name());
             m.put("title", t.toString());
             m.put("hasLevels", t.hasLevels);
-            m.put("timeLimitSec", t.timeLimitSec);
+            m.put("timeLimitSec", t.timeLimitSec(t.effectiveLevel(Level.EASY)));      // лёгкий уровень
+            m.put("timeLimitHardSec", t.timeLimitSec(Level.HARD));
             list.add(m);
         }
         List<Object> levels = new ArrayList<>();

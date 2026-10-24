@@ -3,6 +3,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.function.Function;
 
 /**
  * Темы 1 и 2: цепь E, R1 и R2 || R3; на сложном уровне ещё R4 параллельно R2 и R3.
@@ -16,10 +17,10 @@ final class LadderTasks implements TaskGenerator {
     private static final double EPS = 1e-9;
 
     private final boolean findZ;
-    private final String timeText;
+    private final Function<Level, String> timeText;    // «10 минут» по уровню задания
     private final EnumSet<Element> used = EnumSet.noneOf(Element.class);   // типы, уже выданные в этом тесте
 
-    LadderTasks(boolean findZ, String timeText) {
+    LadderTasks(boolean findZ, Function<Level, String> timeText) {
         this.findZ = findZ;
         this.timeText = timeText;
     }
@@ -69,7 +70,7 @@ final class LadderTasks implements TaskGenerator {
                         + ") и падения напряжения на участках цепи: U1 на резисторе R1 и Uab на параллельном "
                         + "участке между узлами a и b. Ответы дайте в амперах и вольтах с точностью до 0,01. ";
         String text = "Для цепи, показанной на рисунке, " + values + ". "
-                + question + "На выполнение задания отводится " + timeText + ".";
+                + question + "На выполнение задания отводится " + timeText.apply(level) + ".";
         String hint = findZ
                 ? "Проверьте расчёт " + el.hintName + " и попробуйте ещё раз."
                 : "Проверьте расчёт: общее сопротивление цепи, ток I1 по закону Ома, напряжения U1 и Uab, "

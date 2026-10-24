@@ -194,7 +194,7 @@ final class ServerQuizService {
         ses.messageKind = null;
         ses.task = ses.generator.next(ses.taskLevel, ses.rnd);
         ses.schemeJson = ServerSchemeJson.of(ses.task.scheme(), ses.rnd);
-        ses.deadline = Instant.now(clock).plusSeconds(ses.theme.timeLimitSec);
+        ses.deadline = Instant.now(clock).plusSeconds(ses.theme.timeLimitSec(ses.taskLevel));
         touch(ses);
     }
 
@@ -271,7 +271,7 @@ final class ServerQuizService {
         m.put("attempt", ses.attempt);
         m.put("attemptsMax", ses.taskLevel.attempts);
         m.put("rules", ses.taskLevel.rules());
-        m.put("timeLimitSec", ses.theme.timeLimitSec);
+        m.put("timeLimitSec", ses.theme.timeLimitSec(ses.taskLevel));
         long left = Duration.between(Instant.now(clock), ses.deadline).toMillis();
         m.put("secondsLeft", ses.taskDone ? 0 : Math.max(0, (left + 999) / 1000));
         if (ses.taskDone) {

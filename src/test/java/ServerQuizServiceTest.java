@@ -76,6 +76,8 @@ class ServerQuizServiceTest {
         Map<String, Object> st = start(Theme.OHM, Level.HARD);
         String id = (String) st.get("sessionId");
         assertEquals(3, st.get("attemptsMax"));
+        assertEquals(15 * 60, st.get("timeLimitSec"));                 // сложный уровень темы 1 — 15 минут
+        assertEquals(15L * 60, ((Number) st.get("secondsLeft")).longValue());
         List<String> right = ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 0);
 
         st = quiz.answer(id, ServerTestSupport.wrong(right));
@@ -136,8 +138,8 @@ class ServerQuizServiceTest {
     void timeoutGivesTwoAndLateAnswerIsRejected() {
         Map<String, Object> st = start(Theme.OHM, Level.EASY);
         String id = (String) st.get("sessionId");
-        assertEquals((long) Theme.OHM.timeLimitSec, ((Number) st.get("secondsLeft")).longValue());
-        clock.advanceSeconds(Theme.OHM.timeLimitSec + 1);               // в пределах запаса на сеть
+        assertEquals((long) Theme.OHM.timeLimitSec(Level.EASY), ((Number) st.get("secondsLeft")).longValue());
+        clock.advanceSeconds(Theme.OHM.timeLimitSec(Level.EASY) + 1);               // в пределах запаса на сеть
         assertEquals("task", quiz.state(id).get("status"));
         clock.advanceSeconds(ServerQuizService.GRACE_SEC + 1);
 

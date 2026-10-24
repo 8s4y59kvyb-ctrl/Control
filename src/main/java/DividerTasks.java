@@ -1,6 +1,7 @@
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.function.Function;
 
 /**
  * Тема 3: схемы чередуются (первая выбирается случайно), уровней сложности нет.
@@ -11,10 +12,10 @@ final class DividerTasks implements TaskGenerator {
 
     private static final String HINT = "Проверьте расчёт и попробуйте ещё раз.";
 
-    private final String timeText;
+    private final Function<Level, String> timeText;    // «5 минут» по уровню задания
     private Boolean lastCurrent;          // предыдущая схема: true — делитель тока; null — заданий ещё не было
 
-    DividerTasks(String timeText) {
+    DividerTasks(Function<Level, String> timeText) {
         this.timeText = timeText;
     }
 
@@ -32,7 +33,7 @@ final class DividerTasks implements TaskGenerator {
                             + "соединены параллельно. Рассчитайте токи I1 и I2 в резисторах "
                             + "(делитель тока). Ответ дайте в амперах с точностью до 0,01. "
                             + "На выполнение задания отводится %s.",
-                    in, r1, r2, timeText);
+                    in, r1, r2, timeText.apply(level));
             return new Task("делитель тока", text,
                     List.of(new Answer("I1", "А", Circuits.currentShare(in, r1, r2)),
                             new Answer("I2", "А", Circuits.currentShare(in, r2, r1))),
@@ -45,7 +46,7 @@ final class DividerTasks implements TaskGenerator {
                         + "напряжения U1 и U2 на резисторах (делитель напряжения). "
                         + "Ответ дайте в вольтах с точностью до 0,01. "
                         + "На выполнение задания отводится %s.",
-                r1, r2, u, timeText);
+                r1, r2, u, timeText.apply(level));
         return new Task("делитель напряжения", text,
                 List.of(new Answer("U1", "В", Circuits.voltageShare(u, r1, r2)),
                         new Answer("U2", "В", Circuits.voltageShare(u, r2, r1))),

@@ -63,7 +63,7 @@ public class ElectroQuizApp extends Application {
     private int taskNumber = 0;
     private final List<Integer> taskGrades = new ArrayList<>();    // оценки за задания теста
     private final List<String> taskNames = new ArrayList<>();      // описание каждого задания для итога
-    private int secondsLeft = theme.timeLimitSec;
+    private int secondsLeft = theme.timeLimitSec(taskLevel);
     private boolean taskFinished = false;
     private boolean solved = false;
     private Timeline timer;
@@ -91,6 +91,7 @@ public class ElectroQuizApp extends Application {
     private final Label taskText = new Label();
     private final Button checkBtn = new Button("Проверить");
     private final Button nextBtn = new Button("Следующее задание");
+    private final Button calcBtn = new Button("Калькулятор");
     private final Button newTestBtn = new Button("Новый тест");
     private final Label feedback = new Label();
     private final Label timeValue = new Label();
@@ -198,7 +199,8 @@ public class ElectroQuizApp extends Application {
         startTitle.getStyleClass().add("start-title");
         Label startText = new Label(
                 "Введите фамилию в поле «Курсант» (вверху справа), выберите тему и сложность и нажмите "
-                        + "«Начать тестирование». В теме «Закон Ома и Кирхгофа» одно задание на 10 минут, "
+                        + "«Начать тестирование». В теме «Закон Ома и Кирхгофа» одно задание: 10 минут на лёгком "
+                        + "уровне, 15 минут на сложном; "
                         + "в теме «Эквивалентные преобразования» — два задания по 7 минут, в теме «Делители тока "
                         + "и напряжения» (в ней нет выбора сложности) — два задания по 5 минут. "
                         + "Время пойдёт сразу после нажатия кнопки.");
@@ -256,7 +258,9 @@ public class ElectroQuizApp extends Application {
         checkBtn.setOnAction(ev -> checkAnswer());
         nextBtn.getStyleClass().add("secondary-btn");
         nextBtn.setOnAction(ev -> onNext());
-        nextBtn.setDisable(true);
+        showNextButton(false);
+        calcBtn.getStyleClass().add("secondary-btn");
+        calcBtn.setOnAction(ev -> openCalculator());
 
         // поля ответа создаются в startTask под каждое задание; длинный ряд переносится по ширине условия
         inputRow.setAlignment(Pos.CENTER_LEFT);
@@ -348,7 +352,7 @@ public class ElectroQuizApp extends Application {
         attempt = 0;
         solved = false;
         taskFinished = false;
-        secondsLeft = theme.timeLimitSec;
+        secondsLeft = theme.timeLimitSec(taskLevel);
         updateTimerView();
         timeNote.setText("Отсчёт начнётся после нажатия «Начать тестирование»");
         rulesLabel.setText(taskLevel.rules());
@@ -392,12 +396,11 @@ public class ElectroQuizApp extends Application {
         buildAnswerFields(task.answers());
 
         checkBtn.setDisable(false);
-        nextBtn.setDisable(true);
-        nextBtn.setText("Следующее задание");
+        showNextButton(false);                         // появится, когда задание закончится
         gradeValue.setText("—");
         gradeValue.getStyleClass().removeAll("grade-good", "grade-bad");
         rulesLabel.setText(taskLevel.rules());
-        timeNote.setText("На задание отводится " + theme.minutesText());
+        timeNote.setText("На задание отводится " + theme.minutesText(taskLevel));
         setFeedback("", null);
         updateAttempts();
         updateLevelLock();
@@ -407,7 +410,7 @@ public class ElectroQuizApp extends Application {
         flowCheck.setVisible(!flowPaths.isEmpty());    // в схеме с конденсаторами тока нет
         startFlow();
 
-        secondsLeft = theme.timeLimitSec;
+        secondsLeft = theme.timeLimitSec(taskLevel);
         updateTimerView();
         timer = new Timeline(new KeyFrame(Duration.seconds(1), ev -> tick()));
         timer.setCycleCount(Animation.INDEFINITE);
@@ -436,7 +439,7 @@ public class ElectroQuizApp extends Application {
             answerFields.add(field);
             inputRow.getChildren().add(group);
         }
-        inputRow.getChildren().addAll(checkBtn, nextBtn);
+        inputRow.getChildren().addAll(checkBtn, nextBtn, calcBtn);
     }
 
     /** Кнопка после задания: следующее задание либо (после последнего задания темы) итог. */
@@ -562,12 +565,12 @@ public class ElectroQuizApp extends Application {
         setFeedback(message, grade >= 3 ? "ok" : "bad");
         for (TextField field : answerFields) field.setDisable(true);
         checkBtn.setDisable(true);
-        nextBtn.setDisable(false);
         // запоминаем оценку за задание; после последнего задания кнопка ведёт к итогу
         taskGrades.add(grade);
         taskNames.add(task.kind());
         nextBtn.setText(taskGrades.size() >= theme.tasks
                 ? "Завершить тестирование" : "Следующее задание");
+        showNextButton(true);
         updateAttempts();
         updateLevelLock();
     }
@@ -595,7 +598,7 @@ public class ElectroQuizApp extends Application {
     private void updateTimerView() {
         int s = Math.max(secondsLeft, 0);
         timeValue.setText(String.format("%02d:%02d", s / 60, s % 60));
-        timeBar.setProgress((double) s / theme.timeLimitSec);
+        timeBar.setProgress((double) s / theme.timeLimitSec(taskLevel));
         boolean warn = started && !taskFinished && s <= WARN_SEC;
         timeValue.getStyleClass().remove("timer-warn");
         timeBar.getStyleClass().remove("timer-warn");
@@ -619,6 +622,21 @@ public class ElectroQuizApp extends Application {
             }
         }
         attemptsLabel.setText("Использовано " + attempt + " из " + taskLevel.attempts);
+    }
+
+    /** Кнопка перехода видна только после окончания задания, как в веб-версии. */
+    private void showNextButton(boolean show) {
+        nextBtn.setVisible(show);
+        nextBtn.setManaged(show);
+    }
+
+    /** Встроенный калькулятор Windows (calc.exe), как кнопка «Калькулятор» веб-версии. */
+    private void openCalculator() {
+        try {
+            new ProcessBuilder("calc.exe").start();
+        } catch (java.io.IOException ex) {
+            setFeedback("Не удалось открыть калькулятор Windows: " + ex.getMessage(), "warn");
+        }
     }
 
     private void setFeedback(String text, String kind) {

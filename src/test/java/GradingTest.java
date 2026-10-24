@@ -53,13 +53,16 @@ class GradingTest {
 
     @Test
     void themeTimeLimits() {
-        assertEquals(10 * 60, Theme.OHM.timeLimitSec);
-        assertEquals("10 минут", Theme.OHM.minutesText());
+        assertEquals(10 * 60, Theme.OHM.timeLimitSec(Level.EASY));
+        assertEquals(15 * 60, Theme.OHM.timeLimitSec(Level.HARD));  // сложный уровень темы 1 — 15 минут
+        assertEquals("10 минут", Theme.OHM.minutesText(Level.EASY));
+        assertEquals("15 минут", Theme.OHM.minutesText(Level.HARD));
         assertEquals(1, Theme.OHM.tasks);                   // в теме 1 одно задание
         assertEquals(2, Theme.EQUIVALENT.tasks);
         assertEquals(2, Theme.DIVIDERS.tasks);
-        assertEquals(7 * 60, Theme.EQUIVALENT.timeLimitSec);
-        assertEquals(5 * 60, Theme.DIVIDERS.timeLimitSec);
-        assertEquals("5 минут", Theme.DIVIDERS.minutesText());
+        assertEquals(7 * 60, Theme.EQUIVALENT.timeLimitSec(Level.EASY));
+        assertEquals(7 * 60, Theme.EQUIVALENT.timeLimitSec(Level.HARD));
+        assertEquals(5 * 60, Theme.DIVIDERS.timeLimitSec(Theme.DIVIDERS.effectiveLevel(Level.EASY)));
+        assertEquals("5 минут", Theme.DIVIDERS.minutesText(Level.HARD));
     }
 }
