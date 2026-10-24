@@ -144,11 +144,12 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
 
     /**
      * Замкнутый путь тока: плюс источника → верхний провод → одна из ветвей (2, 3 или 4)
-     * → нижний провод → минус источника.
+     * → нижний провод → минус источника. Через конденсатор постоянный ток не течёт — путей нет.
      */
     @Override
     public List<FlowPath> flowPaths(Random rnd) {
-        double g2 = element.admittance(r2), g3 = element.admittance(r3), g4 = withR4 ? element.admittance(r4) : 0;
+        if (element == Element.CAPACITOR) return List.of();
+        double g2 = 1.0 / r2, g3 = 1.0 / r3, g4 = withR4 ? 1.0 / r4 : 0;
         double sum = g2 + g3 + g4;
 
         List<FlowPath> paths = new ArrayList<>();

@@ -46,6 +46,9 @@ class FlowPathTest {
         double densityR3 = paths.get(1).count / paths.get(1).len;
         assertTrue(densityR2 > densityR3);
         assertEquals(3, new LadderScheme(30, 10, 20, 40, 50, true, false, Element.RESISTOR).flowPaths(new Random(0)).size());
+        assertEquals(3, new LadderScheme(30, 10, 20, 40, 50, true, true, Element.INDUCTOR).flowPaths(new Random(0)).size());
+        // через конденсатор постоянный ток не течёт
+        assertTrue(new LadderScheme(30, 10, 20, 40, 50, true, true, Element.CAPACITOR).flowPaths(new Random(0)).isEmpty());
     }
 
     @Test

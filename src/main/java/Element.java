@@ -34,11 +34,6 @@ enum Element {
         return this == CAPACITOR ? sum(v) : Circuits.parallel(v);
     }
 
-    /** Проводимость ветви для анимации: ток делится пропорционально ей (у конденсатора — ωC). */
-    double admittance(double v) {
-        return this == CAPACITOR ? v : 1.0 / v;
-    }
-
     private static double sum(double... v) {
         double s = 0;
         for (double x : v) s += x;

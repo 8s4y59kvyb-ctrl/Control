@@ -436,6 +436,7 @@ public class ElectroQuizApp extends Application {
         drawScheme(task.scheme());
         flowPaths.clear();
         flowPaths.addAll(task.scheme().flowPaths(rnd));
+        flowCheck.setVisible(!flowPaths.isEmpty());    // в схеме с конденсаторами тока нет
         startFlow();
 
         secondsLeft = theme.timeLimitSec;

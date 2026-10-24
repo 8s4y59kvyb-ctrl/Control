@@ -329,6 +329,7 @@ function drawScheme(s) {
     }
     return { ...p, cum };
   });
+  $('flow-on').parentElement.hidden = !flowPaths.length;   // в схеме с конденсаторами тока нет
   flowColor = s.flowColor;
   flowStart = 0;
 }
