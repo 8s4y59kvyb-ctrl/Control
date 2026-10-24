@@ -73,8 +73,10 @@ class ServerAppTest {
         assertEquals("nosniff", index.headers().firstValue("X-Content-Type-Options").orElse(""));
 
         JsonNode meta = json(send("GET", "/api/themes", null, null));
-        assertEquals(3, meta.get("themes").size());
+        assertEquals(4, meta.get("themes").size());
         assertEquals("OHM", meta.get("themes").get(0).get("id").asText());
+        assertTrue(meta.get("themes").get(0).get("ready").asBoolean());
+        assertTrue(meta.get("themes").get(3).get("ready").asBoolean());      // переменный ток — готов
         assertEquals(2, meta.get("levels").size());
     }
 

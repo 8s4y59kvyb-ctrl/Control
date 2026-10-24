@@ -166,6 +166,29 @@ class ServerQuizServiceTest {
     }
 
     @Test
+    void acChartShownOnlyAfterCorrectAnswer() {
+        Map<String, Object> st = start(Theme.AC_REACTANCE, Level.EASY);
+        String id = (String) st.get("sessionId");
+        assertEquals(2, st.get("tasksTotal"));
+        assertEquals(5, ((List<?>) map(st.get("task")).get("fields")).size());  // лёгкий уровень — 5 частот
+        assertFalse(map(st.get("task")).containsKey("chart"));                  // до ответа графика нет
+
+        st = quiz.answer(id, ServerTestSupport.answers(Theme.AC_REACTANCE, Level.EASY, SEED, 0));
+        assertEquals("task_done", st.get("status"));
+        assertEquals(5, st.get("taskGrade"));
+        Map<String, Object> chart = map(map(st.get("task")).get("chart"));
+        assertFalse(((List<?>) chart.get("ops")).isEmpty());
+        assertEquals(5, ((Number) st.get("chartSec")).intValue());
+
+        st = quiz.next(id);                                                      // второе задание — неверно
+        st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.AC_REACTANCE, Level.EASY, SEED, 1)));
+        assertEquals("task_done", st.get("status"));
+        assertEquals(2, st.get("taskGrade"));
+        assertFalse(map(st.get("task")).containsKey("chart"));
+        assertFalse(st.containsKey("chartSec"));
+    }
+
+    @Test
     void protocolErrors() {
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.state("нет")).status);
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.answer(null, List.of("1"))).status);

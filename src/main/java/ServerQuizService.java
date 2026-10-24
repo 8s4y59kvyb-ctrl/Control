@@ -25,6 +25,7 @@ final class ServerQuizService {
     static final Duration IDLE_TTL = Duration.ofHours(3);         // сессии без активности забываются
     static final int GRACE_SEC = 2;                               // запас на задержку сети при проверке времени
     static final int MAX_ANSWER_LEN = 30;
+    static final int CHART_SEC = 5;                               // сколько браузер показывает график после верного ответа
 
     /** Состояние одного теста; все обращения — под synchronized (session). */
     private static final class Session {
@@ -41,6 +42,7 @@ final class ServerQuizService {
 
         Task task;
         Map<String, Object> schemeJson;
+        Map<String, Object> chartJson;    // график после верного ответа (тема 4), иначе null
         int taskNumber, attempt;
         Instant deadline;
         boolean taskDone, finished;
@@ -91,6 +93,7 @@ final class ServerQuizService {
     /** Начинает тест: первое задание выдаётся сразу, время на него пошло. */
     Map<String, Object> start(String group, String surname, Theme theme, Level level) {
         String g = ServerInput.group(group), s = ServerInput.surname(surname);
+        if (!theme.ready()) throw ServerError.badRequest("Тема в разработке: заданий пока нет.");
         if (theme.hasLevels && level == null) throw ServerError.badRequest("Выберите сложность.");
         purgeIdle();
         if (sessions.size() >= MAX_ACTIVE) throw new ServerError(503, "Сервер перегружен, попробуйте позже.");
@@ -143,6 +146,8 @@ final class ServerQuizService {
             ses.attempt++;
             int right = ses.task.countCorrect(nums);
             if (right == nums.length) {                       // попытка засчитывается, если верны все значения
+                // график не тратит ses.rnd: порядок случайных чисел в заданиях не меняется
+                if (ses.task.chart() != null) ses.chartJson = ServerSchemeJson.of(ses.task.chart(), new Random(0));
                 finishTask(ses, ses.taskLevel.gradeForAttempt(ses.attempt),
                         "Верно! " + ses.task.correctText() + ". Задание решено с попытки " + ses.attempt + ".");
             } else if (ses.attempt >= ses.taskLevel.attempts) {
@@ -175,6 +180,7 @@ final class ServerQuizService {
                 ses.finished = true;
                 ses.task = null;
                 ses.schemeJson = null;
+                ses.chartJson = null;
             }
             return view(ses);
         }
@@ -192,6 +198,7 @@ final class ServerQuizService {
         ses.taskDone = false;
         ses.message = null;
         ses.messageKind = null;
+        ses.chartJson = null;
         ses.task = ses.generator.next(ses.taskLevel, ses.rnd);
         ses.schemeJson = ServerSchemeJson.of(ses.task.scheme(), ses.rnd);
         ses.deadline = Instant.now(clock).plusSeconds(ses.theme.timeLimitSec(ses.taskLevel));
@@ -290,6 +297,10 @@ final class ServerQuizService {
         }
         task.put("fields", fields);
         task.put("scheme", ses.schemeJson);
+        if (ses.taskDone && ses.chartJson != null) {
+            task.put("chart", ses.chartJson);
+            m.put("chartSec", CHART_SEC);
+        }
         m.put("task", task);
         return m;
     }

@@ -14,6 +14,7 @@ let tick = null;
 let flowPaths = [];
 let flowColor = '#2563eb';
 let flowStart = 0;
+const chartsShown = new Set();               // задания (sessionId:taskNumber), график которых уже показан
 
 async function api(method, url, body) {
   const res = await fetch(url, {
@@ -43,6 +44,7 @@ async function init() {
     const o = document.createElement('option');
     o.value = t.id;
     o.textContent = t.title;
+    o.disabled = !t.ready;                      // тема «в разработке»: видна, но не выбирается
     $('theme').appendChild(o);
   }
   const box = $('levels');
@@ -65,7 +67,9 @@ async function init() {
   const saved = sessionStorage.getItem(SESSION_KEY);
   if (saved) {
     try {
-      render(await api('GET', '/api/sessions/' + encodeURIComponent(saved)));
+      const st = await api('GET', '/api/sessions/' + encodeURIComponent(saved));
+      if (st.taskNumber) chartsShown.add(st.sessionId + ':' + st.taskNumber);   // после перезагрузки график не повторяем
+      render(st);
       return;
     } catch (e) {
       sessionStorage.removeItem(SESSION_KEY);
@@ -133,6 +137,10 @@ function render(st) {
 
   const done = st.status === 'task_done';
   buildFields(st, done);
+  if (done && st.task.chart && !chartsShown.has(st.sessionId + ':' + st.taskNumber)) {
+    showChart(st);
+    return;
+  }
   $('check-btn').hidden = done;
   $('next-btn').hidden = !done;
   $('next-btn').textContent = st.lastTask ? 'Завершить тестирование' : 'Следующее задание';
@@ -147,6 +155,25 @@ function render(st) {
 
   deadlineAt = Date.now() + st.secondsLeft * 1000;
   startTimer();
+}
+
+/** Верный ответ в теме 4: вместо схемы на chartSec секунд — график X(f), затем оценка и сообщение. */
+function showChart(st) {
+  const key = st.sessionId + ':' + st.taskNumber;
+  chartsShown.add(key);
+  clearInterval(tick);
+  updateTimer();                               // время стоит: задание завершено
+  $('check-btn').hidden = true;
+  $('next-btn').hidden = true;
+  setFeedback('Верно! График зависимости сопротивления от частоты. Оценка появится через несколько секунд…', null);
+  const g = $('grade');
+  g.textContent = '—';
+  g.className = 'grade-value';
+  drawDots(st, false);
+  drawScheme(st.task.chart);
+  setTimeout(() => {
+    if (state && state.sessionId + ':' + state.taskNumber === key && state.status !== 'finished') render(state);
+  }, (st.chartSec || 5) * 1000);
 }
 
 /** Поля ответа пересоздаются только при новом задании, иначе при неверной попытке потерялся бы ввод. */

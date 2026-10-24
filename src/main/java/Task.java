@@ -9,11 +9,17 @@ import java.util.stream.Collectors;
  * @param answers искомые величины (одна или две), в порядке полей ввода
  * @param hint    подсказка после неверной попытки
  * @param scheme  рисунок схемы и пути тока для анимации
+ * @param chart   график, который показывается вместо схемы после верного ответа (тема 4), иначе null
  */
-record Task(String kind, String text, List<Answer> answers, String hint, Scheme scheme) {
+record Task(String kind, String text, List<Answer> answers, String hint, Scheme scheme, Scheme chart) {
 
     Task {
         answers = List.copyOf(answers);
+    }
+
+    /** Задание без графика после верного ответа. */
+    Task(String kind, String text, List<Answer> answers, String hint, Scheme scheme) {
+        this(kind, text, answers, hint, scheme, null);
     }
 
     /** Сколько введённых значений верны; values идут в том же порядке, что и answers. */

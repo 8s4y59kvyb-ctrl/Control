@@ -1,6 +1,7 @@
 import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
 import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -67,6 +68,8 @@ public class ElectroQuizApp extends Application {
     private boolean taskFinished = false;
     private boolean solved = false;
     private Timeline timer;
+    private static final int CHART_SEC = 5;        // сколько секунд виден график после верного ответа (тема 4)
+    private PauseTransition chartPause;            // идёт показ графика
 
     // элементы интерфейса
     private final TextField nameField = new TextField();
@@ -133,6 +136,7 @@ public class ElectroQuizApp extends Application {
         stage.setMinHeight(680);
         stage.setOnCloseRequest(ev -> {
             stopTimer();
+            stopChart();
             if (flowTimer != null) flowTimer.stop();
         });
         stage.show();
@@ -203,6 +207,8 @@ public class ElectroQuizApp extends Application {
                         + "уровне, 15 минут на сложном; "
                         + "в теме «Эквивалентные преобразования» — два задания по 7 минут, в теме «Делители тока "
                         + "и напряжения» (в ней нет выбора сложности) — два задания по 5 минут. "
+                        + "В теме «Переменный ток» два задания (сначала катушка, затем конденсатор): 7 минут на лёгком уровне "
+                        + "(5 частот), 10 минут на сложном (6 частот). "
                         + "Время пойдёт сразу после нажатия кнопки.");
         startText.setWrapText(true);
         startText.getStyleClass().add("task-text");
@@ -216,7 +222,8 @@ public class ElectroQuizApp extends Application {
         themeBox.valueProperty().addListener((obs, old, now) -> {
             if (now == null) return;
             theme = now;
-            startHint.setText("");
+            startHint.setText(theme.ready() ? "" : "Тема в разработке: заданий пока нет, выберите другую тему.");
+            startBtn.setDisable(!theme.ready());
             taskLevel = theme.effectiveLevel(level);
             updateLevelControls();                 // в теме 3 выбор сложности скрыт
             if (!started) showIdleState();         // показываем время и правила выбранной темы
@@ -361,7 +368,7 @@ public class ElectroQuizApp extends Application {
     }
 
     private void onStart() {
-        if (started) return;
+        if (started || !theme.ready()) return;
         if (nameField.getText().trim().isEmpty()) {
             startHint.setText("Введите фамилию, чтобы начать тестирование.");
             nameField.requestFocus();
@@ -495,6 +502,7 @@ public class ElectroQuizApp extends Application {
     /** Кнопка «Новый тест» на итоговой карточке: сбрасывает тест и возвращает к стартовой карточке. */
     private void onNewTest() {
         stopTimer();
+        stopChart();
         started = false;
         generator = null;
         task = null;
@@ -543,6 +551,7 @@ public class ElectroQuizApp extends Application {
             solved = true;
             int grade = taskLevel.gradeForAttempt(attempt);
             finishTask(grade, "Верно! " + task.correctText() + ". Задание решено с попытки " + attempt + ".");
+            if (task.chart() != null) showChart();
         } else if (attempt >= taskLevel.attempts) {
             String prefix = (taskLevel == Level.EASY) ? "Неверно. В лёгком режиме одна попытка. "
                                                       : "Попытки закончились. ";
@@ -573,6 +582,39 @@ public class ElectroQuizApp extends Application {
         showNextButton(true);
         updateAttempts();
         updateLevelLock();
+    }
+
+    /**
+     * Тема 4: после верного ответа вместо схемы на CHART_SEC секунд показывается график X(f),
+     * затем возвращаются схема, оценка, сообщение и кнопка перехода (их уже выставил finishTask).
+     */
+    private void showChart() {
+        String grade = gradeValue.getText();
+        String message = feedback.getText();
+        gradeValue.setText("—");
+        gradeValue.getStyleClass().remove("grade-good");
+        setFeedback("Верно! График зависимости сопротивления от частоты…", "ok");
+        showNextButton(false);
+        flowPaths.clear();
+        flowCheck.setVisible(false);
+        drawScheme(task.chart());
+
+        chartPause = new PauseTransition(Duration.seconds(CHART_SEC));
+        chartPause.setOnFinished(ev -> {
+            chartPause = null;
+            drawScheme(task.scheme());
+            gradeValue.setText(grade);
+            gradeValue.getStyleClass().add("grade-good");      // верный ответ — оценка не ниже 3
+            setFeedback(message, "ok");
+            showNextButton(true);
+            nextBtn.requestFocus();
+        });
+        chartPause.play();
+    }
+
+    private void stopChart() {
+        if (chartPause != null) chartPause.stop();
+        chartPause = null;
     }
 
     /** В теме без выбора сложности переключатель не нужен — прячем его. */

@@ -4,6 +4,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -49,6 +50,18 @@ class GradingTest {
         assertEquals(Level.HARD, Theme.DIVIDERS.effectiveLevel(Level.EASY));
         assertEquals(Level.EASY, Theme.OHM.effectiveLevel(Level.EASY));
         assertEquals(Level.EASY, Theme.EQUIVALENT.effectiveLevel(Level.EASY));
+    }
+
+    @Test
+    void acThemeIsReady() {
+        assertTrue(Theme.AC_REACTANCE.ready());
+        assertTrue(Theme.OHM.ready() && Theme.EQUIVALENT.ready() && Theme.DIVIDERS.ready());
+        assertEquals("4. Переменный ток. Сопротивление реактивных элементов", Theme.AC_REACTANCE.toString());
+        assertEquals(2, Theme.AC_REACTANCE.tasks);                 // катушка и конденсатор
+        assertTrue(Theme.AC_REACTANCE.hasLevels);
+        assertEquals(7 * 60, Theme.AC_REACTANCE.timeLimitSec(Level.EASY));
+        assertEquals(10 * 60, Theme.AC_REACTANCE.timeLimitSec(Level.HARD));
+        assertNotNull(Theme.AC_REACTANCE.newGenerator().next(Level.EASY, new java.util.Random(1)));
     }
 
     @Test
