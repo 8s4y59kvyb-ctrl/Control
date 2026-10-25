@@ -16,3 +16,6 @@ Thumbs.db
 
 # Web version database
 *.db
+
+# graphify knowledge graph
+graphify-out/
