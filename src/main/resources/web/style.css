@@ -1,6 +1,7 @@
 /* Палитра и размеры взяты из настольного приложения (src/main/resources/style.css). */
 * { box-sizing: border-box; }
-body { margin: 0; background: #f1f5f9; color: #1e293b; font: 14px "Segoe UI", system-ui, sans-serif; }
+body { margin: 0; background: #f1f5f9; color: #1e293b; font: 14px "Segoe UI", system-ui, sans-serif;
+       display: flex; flex-direction: column; min-height: 100vh; }   /* подвал прижат к низу окна */
 [hidden] { display: none !important; }
 
 /* ---------- шапка ---------- */
@@ -8,7 +9,10 @@ body { margin: 0; background: #f1f5f9; color: #1e293b; font: 14px "Segoe UI", sy
 .app-title { color: #fff; font-size: 22px; font-weight: bold; }
 .app-subtitle { color: #94a3b8; font-size: 12px; }
 
-.page { max-width: 960px; margin: 0 auto; padding: 14px; }
+.page { max-width: 960px; width: 100%; margin: 0 auto; padding: 14px; flex: 1; }
+
+/* ---------- авторы: подвал страницы ---------- */
+.footer { background: #e2e8f0; color: #64748b; font-size: 12px; padding: 6px 18px; }
 
 /* ---------- карточки ---------- */
 .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px;

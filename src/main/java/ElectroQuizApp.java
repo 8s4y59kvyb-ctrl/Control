@@ -49,6 +49,8 @@ public class ElectroQuizApp extends Application {
 
     private static final int MAX_DOTS = 3;
     private static final int WARN_SEC = 60;
+    // авторы программы: нижняя строка окна
+    private static final List<String> AUTHORS = List.of("Иванкин А. В.", "Шапкарин А. М.", "Гукосян Ш. Р.");
 
     private final Random rnd = new Random();
     private final ResultLog resultLog = ResultLog.inDocuments();    // журнал итоговых оценок
@@ -123,6 +125,7 @@ public class ElectroQuizApp extends Application {
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
         root.setRight(buildSidePanel());
+        root.setBottom(buildFooter());
 
         Scene scene = new Scene(root, 1140, 720);
         scene.getStylesheets().add(getClass().getResource("style.css").toExternalForm());
@@ -195,6 +198,17 @@ public class ElectroQuizApp extends Application {
         header.setPadding(new Insets(14, 24, 14, 24));
         header.getStyleClass().add("header");
         return header;
+    }
+
+    // ---------- Нижняя строка: авторы ----------
+    private HBox buildFooter() {
+        Label authors = new Label("Авторы: " + String.join(", ", AUTHORS));
+        authors.getStyleClass().add("footer-text");
+        HBox footer = new HBox(authors);
+        footer.setAlignment(Pos.CENTER_LEFT);
+        footer.setPadding(new Insets(6, 24, 6, 24));
+        footer.getStyleClass().add("footer");
+        return footer;
     }
 
     // ---------- Центральная часть: стартовая карточка / рабочая область ----------
