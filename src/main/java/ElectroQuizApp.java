@@ -50,7 +50,7 @@ public class ElectroQuizApp extends Application {
     private static final int MAX_DOTS = 3;
     private static final int WARN_SEC = 60;
     // авторы программы: нижняя строка окна
-    private static final List<String> AUTHORS = List.of("Иванкин А. В.", "Шапкарин А. М.", "Гукосян Ш. Р.");
+    private static final List<String> AUTHORS = List.of("Иванкин А. В.", "Алимов А. П.", "Шапкарин А. М.", "Гукосян Ш. Р.", "Дудиев Г. С.", "АДЪЮНКТ");
 
     private final Random rnd = new Random();
     private final ResultLog resultLog = ResultLog.inDocuments();    // журнал итоговых оценок
