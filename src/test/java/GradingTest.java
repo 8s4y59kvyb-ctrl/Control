@@ -70,8 +70,8 @@ class GradingTest {
         assertEquals("5. Переменный ток. Последовательный колебательный контур", Theme.RESONANCE.toString());
         assertEquals(2, Theme.RESONANCE.tasks);
         assertTrue(Theme.RESONANCE.hasLevels);
-        assertEquals(10 * 60, Theme.RESONANCE.timeLimitSec(Level.EASY));
-        assertEquals(10 * 60, Theme.RESONANCE.timeLimitSec(Level.HARD));
+        assertEquals(15 * 60, Theme.RESONANCE.timeLimitSec(Level.EASY));
+        assertEquals(15 * 60, Theme.RESONANCE.timeLimitSec(Level.HARD));
     }
 
     @Test
