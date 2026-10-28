@@ -96,4 +96,22 @@ class GradingTest {
         assertEquals(5 * 60, Theme.DIVIDERS.timeLimitSec(Theme.DIVIDERS.effectiveLevel(Level.EASY)));
         assertEquals("5 минут", Theme.DIVIDERS.minutesText(Level.HARD));
     }
+
+    @Test
+    void minutesAreDeclined() {
+        assertEquals("1 минута", ThemeRules.minutes(1));
+        assertEquals("3 минуты", ThemeRules.minutes(3));
+        assertEquals("5 минут", ThemeRules.minutes(5));
+        assertEquals("12 минут", ThemeRules.minutes(12));
+        assertEquals("21 минута", ThemeRules.minutes(21));
+        assertEquals("44 минуты", ThemeRules.minutes(44));
+    }
+
+    @Test
+    void descriptionFollowsRules() {
+        String d = Theme.OHM.description(new ThemeRules(3 * 60, 4 * 60, 3));
+        assertTrue(d.startsWith("Три задания: по схеме"), d);
+        assertTrue(d.endsWith("На каждое задание — 3 минуты на лёгком уровне, 4 минуты на сложном."), d);
+        assertTrue(Theme.DIVIDERS.description(new ThemeRules(60, 60, 1)).endsWith("На задание — 1 минута."));
+    }
 }

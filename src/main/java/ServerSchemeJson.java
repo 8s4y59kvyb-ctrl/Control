@@ -5,13 +5,12 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Записывает рисование схемы в список команд для браузера. Геометрию по-прежнему задают
- * {@link Scheme#draw}, поэтому веб-схема не расходится с настольной.
+ * Записывает рисование схемы в список команд для браузера. Геометрию задаёт {@link Scheme#draw}.
  * Команда — массив: имя и аргументы, например ["line", x1, y1, x2, y2].
  */
 final class ServerSchemeJson implements Painter {
 
-    static final int WIDTH = 600, HEIGHT = 300;     // размер холста, как в настольном приложении
+    static final int WIDTH = 600, HEIGHT = 300;     // размер холста
 
     private final List<Object> ops = new ArrayList<>();
 
@@ -39,7 +38,7 @@ final class ServerSchemeJson implements Painter {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("width", WIDTH);
         out.put("height", HEIGHT);
-        out.put("wire", Scheme.WIRE);       // исходные цвет и толщина пера, как в drawScheme настольного приложения
+        out.put("wire", Scheme.WIRE);       // исходные цвет и толщина пера
         out.put("lineWidth", 2.2);
         out.put("flowColor", Scheme.BLUE);
         out.put("ops", rec.ops);

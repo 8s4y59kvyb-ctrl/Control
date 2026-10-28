@@ -18,6 +18,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -140,6 +141,17 @@ final class ServerApp {
             ctx.header("Content-Disposition", "attachment; filename=\"electroquiz-results.csv\"");
             ctx.result(csv);
         });
+        app.get("/api/admin/settings", ctx -> ctx.json(settingsJson(quiz.settings().values())));
+        app.put("/api/admin/settings", ctx -> {
+            ServerSettings.Values v = saveSettings(body(ctx));
+            LOG.info("Настройки изменены с адреса {}: {}", ctx.ip(), v);
+            ctx.json(settingsJson(v));
+        });
+        app.post("/api/admin/settings/reset", ctx -> {
+            ServerSettings.Values v = quiz.settings().reset();
+            LOG.info("Настройки сброшены с адреса {}", ctx.ip());
+            ctx.json(settingsJson(v));
+        });
     }
 
     // ---------- вспомогательное ----------
@@ -180,17 +192,19 @@ final class ServerApp {
         }
     }
 
-    private static Map<String, Object> themes() {
+    private Map<String, Object> themes() {
         List<Object> list = new ArrayList<>();
         for (Theme t : Theme.values()) {
+            ThemeRules r = quiz.settings().rules(t);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", t.name());
             m.put("title", t.toString());
             m.put("hasLevels", t.hasLevels);
-            m.put("description", t.description());
+            m.put("description", t.description(r));
             m.put("ready", t.ready());                    // тему «в разработке» не выбрать
-            m.put("timeLimitSec", t.timeLimitSec(t.effectiveLevel(Level.EASY)));      // лёгкий уровень
-            m.put("timeLimitHardSec", t.timeLimitSec(Level.HARD));
+            m.put("tasks", r.tasks());
+            m.put("timeLimitSec", r.timeLimitSec(t.effectiveLevel(Level.EASY)));      // лёгкий уровень
+            m.put("timeLimitHardSec", r.timeLimitSec(Level.HARD));
             list.add(m);
         }
         List<Object> levels = new ArrayList<>();
@@ -207,11 +221,67 @@ final class ServerApp {
         return out;
     }
 
+    /** Настройки для страницы преподавателя: время в минутах, рядом значения по умолчанию и допустимые пределы. */
+    private static Map<String, Object> settingsJson(ServerSettings.Values v) {
+        List<Object> list = new ArrayList<>();
+        for (Theme t : Theme.values()) {
+            ThemeRules r = v.rules().get(t), d = t.defaults();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", t.name());
+            m.put("title", t.toString());
+            m.put("hasLevels", t.hasLevels);
+            m.put("easyMin", r.easySec() / 60);
+            m.put("hardMin", r.hardSec() / 60);
+            m.put("tasks", r.tasks());
+            m.put("defaultEasyMin", d.easySec() / 60);
+            m.put("defaultHardMin", d.hardSec() / 60);
+            m.put("defaultTasks", d.tasks());
+            list.add(m);
+        }
+        Map<String, Object> limits = new LinkedHashMap<>();
+        limits.put("minMinutes", ServerSettings.MIN_MINUTES);
+        limits.put("maxMinutes", ServerSettings.MAX_MINUTES);
+        limits.put("minTasks", ServerSettings.MIN_TASKS);
+        limits.put("maxTasks", ServerSettings.MAX_TASKS);
+        limits.put("maxRetakeMin", ServerSettings.MAX_RETAKE_MIN);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("themes", list);
+        out.put("retakeMin", v.retakeMin());
+        out.put("defaultRetakeMin", ServerSettings.DEFAULT_RETAKE_MIN);
+        out.put("limits", limits);
+        return out;
+    }
+
+    /** Разбор {"themes": [{"id", "easyMin", "hardMin", "tasks"}], "retakeMin"}; проверку значений делает ServerSettings. */
+    private ServerSettings.Values saveSettings(JsonNode b) {
+        JsonNode themes = b.get("themes");
+        if (themes == null || !themes.isArray()) throw ServerError.badRequest("Нужен массив themes.");
+        Map<Theme, ThemeRules> rules = new EnumMap<>(Theme.class);
+        for (JsonNode n : themes) {
+            if (!n.isObject()) throw ServerError.badRequest("Ожидался объект темы.");
+            Theme t = theme(text(n, "id"));
+            int hard = whole(n, "hardMin");
+            int easy = t.hasLevels ? whole(n, "easyMin") : hard;
+            rules.put(t, new ThemeRules(easy * 60, hard * 60, whole(n, "tasks")));
+        }
+        return quiz.settings().save(rules, whole(b, "retakeMin"));
+    }
+
+    /** Целое число из поля JSON (число или строка с числом). */
+    private static int whole(JsonNode b, String field) {
+        String s = text(b, field);
+        try {
+            return Integer.parseInt(s == null ? "" : s.trim());
+        } catch (NumberFormatException ex) {
+            throw ServerError.badRequest("Поле " + field + " должно быть целым числом.");
+        }
+    }
+
     private static Map<String, Object> rowJson(ServerRepository.ResultRow r) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", r.id());
-        m.put("date", ResultLog.DATE.format(r.when()));
-        m.put("time", ResultLog.TIME.format(r.when()));
+        m.put("date", ServerCsv.DATE.format(r.when()));
+        m.put("time", ServerCsv.TIME.format(r.when()));
         m.put("group", r.group());
         m.put("surname", r.surname());
         m.put("theme", r.theme().title);

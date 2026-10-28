@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ElectroQuiz — результаты</title>
+  <title>ElectroQuiz — преподаватель</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="header">
   <div class="app-title">203 кафедра РАДИОЭЛЕКТРОНИКИ</div>
-  <div class="app-subtitle">Журнал результатов (преподаватель)</div>
+  <div class="app-subtitle">Страница преподавателя</div>
 </header>
 
 <main class="page">
@@ -24,6 +24,13 @@
   </section>
 
   <div id="journal" hidden>
+  <nav class="tabs">
+    <button class="tab on" type="button" data-tab="results">Результаты</button>
+    <button class="tab" type="button" data-tab="settings">Настройки</button>
+    <button id="logout" class="secondary-btn tabs-logout" type="button">Выйти</button>
+  </nav>
+
+  <div id="tab-results">
   <section class="card">
     <form id="filters" class="filters">
       <label class="field">Группа
@@ -40,7 +47,6 @@
       </label>
       <button class="primary-btn" type="submit">Показать</button>
       <button id="csv" class="secondary-btn" type="button">Скачать CSV</button>
-      <button id="logout" class="secondary-btn" type="button">Выйти</button>
     </form>
   </section>
 
@@ -56,6 +62,34 @@
       </table>
     </div>
   </section>
+  </div>
+
+  <div id="tab-settings" hidden>
+  <section class="card">
+    <form id="settings-form" novalidate>
+      <h2 class="card-title">Время на задание и число заданий</h2>
+      <p class="muted">Время — на каждое задание, в минутах. Изменения действуют на тесты, начатые после сохранения:
+        тесты, которые уже идут, заканчиваются по прежним правилам.</p>
+      <div class="table-wrap">
+        <table class="settings">
+          <thead>
+            <tr><th>Тема</th><th>Лёгкий, мин</th><th>Сложный, мин</th><th>Заданий</th><th>По умолчанию</th></tr>
+          </thead>
+          <tbody id="settings-rows"></tbody>
+        </table>
+      </div>
+      <label class="field retake">Пауза перед пересдачей той же темы, мин (0 — без паузы)
+        <input id="retake" type="number" class="num" min="0" step="1" required>
+        <span id="retake-default" class="muted"></span>
+      </label>
+      <p id="settings-msg" class="feedback" role="alert"></p>
+      <div class="buttons">
+        <button class="primary-btn" type="submit">Сохранить</button>
+        <button id="settings-reset" class="secondary-btn" type="button">Вернуть значения по умолчанию</button>
+      </div>
+    </form>
+  </section>
+  </div>
   </div>
 </main>
 <footer class="footer">Авторы: Иванкин А. В., Алимов А. П., Шапкарин А. М., Гукосян Ш. Р., Дудиев Г. С., АДЪЮНКТ</footer>

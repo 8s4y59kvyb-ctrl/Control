@@ -185,4 +185,36 @@ class ServerAppTest {
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
+
+    @Test
+    void teacherChangesSettings() throws Exception {
+        assertEquals(401, send("GET", "/api/admin/settings", null, null).statusCode());
+        assertEquals(401, send("PUT", "/api/admin/settings", "{}", "wrong").statusCode());
+
+        JsonNode s = json(send("GET", "/api/admin/settings", null, "secret"));
+        assertEquals(Theme.values().length, s.get("themes").size());
+        assertEquals(10, s.get("themes").get(0).get("easyMin").asInt());
+        assertEquals(15, s.get("retakeMin").asInt());
+
+        String body = "{\"retakeMin\":5,\"themes\":[{\"id\":\"OHM\",\"easyMin\":\"3\",\"hardMin\":4,\"tasks\":2}]}";
+        HttpResponse<String> saved = send("PUT", "/api/admin/settings", body, "secret");
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertEquals(5, json(saved).get("retakeMin").asInt());
+
+        JsonNode ohm = json(send("GET", "/api/themes", null, null)).get("themes").get(0);
+        assertEquals(3 * 60, ohm.get("timeLimitSec").asInt());
+        assertEquals(4 * 60, ohm.get("timeLimitHardSec").asInt());
+        assertEquals(2, ohm.get("tasks").asInt());
+        assertTrue(ohm.get("description").asText().startsWith("Два задания"));
+
+        HttpResponse<String> bad = send("PUT", "/api/admin/settings",
+                "{\"retakeMin\":5,\"themes\":[{\"id\":\"OHM\",\"easyMin\":0,\"hardMin\":4,\"tasks\":2}]}", "secret");
+        assertEquals(400, bad.statusCode());
+        assertTrue(json(bad).get("error").asText().contains("Тема 1"));
+        assertEquals(400, send("PUT", "/api/admin/settings", "{\"retakeMin\":\"x\",\"themes\":[]}", "secret").statusCode());
+
+        JsonNode reset = json(send("POST", "/api/admin/settings/reset", null, "secret"));
+        assertEquals(10, reset.get("themes").get(0).get("easyMin").asInt());
+        assertEquals(15, reset.get("retakeMin").asInt());
+    }
 }

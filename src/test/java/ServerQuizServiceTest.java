@@ -1,3 +1,4 @@
+import java.util.EnumMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -16,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Ход теста: попытки, оценки, время, итог и записанный результат — по тем же правилам, что в настольном приложении. */
+/** Ход теста: попытки, оценки, время, итог и записанный результат. */
 class ServerQuizServiceTest {
 
     private static final long SEED = 7;
@@ -266,6 +267,24 @@ class ServerQuizServiceTest {
     }
 
     @Test
+    void retakeOfSameThemeOnlyAfterPause() {
+        String id = (String) start(Theme.OHM, Level.EASY).get("sessionId");
+        clock.advanceSeconds(Theme.OHM.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
+        assertEquals("task_done", quiz.state(id).get("status"));      // время вышло — задание закрыто
+        assertEquals("finished", quiz.next(id).get("status"));
+
+        ServerError e = assertThrows(ServerError.class, () -> start(Theme.OHM, Level.HARD));
+        assertEquals(409, e.status);
+        assertTrue(e.getMessage().contains("15 мин."), e.getMessage());
+        assertEquals("task", start(Theme.DIVIDERS, null).get("status"));   // другую тему — сразу
+
+        clock.advanceSeconds(ServerSettings.DEFAULT_RETAKE_MIN * 60 - 60);
+        assertThrows(ServerError.class, () -> start(Theme.OHM, Level.EASY));
+        clock.advanceSeconds(60);
+        assertEquals("task", start(Theme.OHM, Level.EASY).get("status"));
+    }
+
+    @Test
     void sameCadetWithTwoTabsGetsIndependentSessions() {
         String a = (String) start(Theme.EQUIVALENT, Level.EASY).get("sessionId");
         String b = (String) start(Theme.EQUIVALENT, Level.EASY).get("sessionId");
@@ -273,5 +292,57 @@ class ServerQuizServiceTest {
         quiz.answer(a, List.of("0"));
         assertEquals("task", quiz.state(b).get("status"));
         assertEquals(1, repo.cadetCount());
+    }
+
+    @Test
+    void settingsApplyToNewTestsOnly() {
+        String running = (String) start(Theme.EQUIVALENT, Level.EASY).get("sessionId");
+        Map<Theme, ThemeRules> rules = new EnumMap<>(Theme.class);
+        rules.put(Theme.EQUIVALENT, new ThemeRules(3 * 60, 4 * 60, 3));
+        quiz.settings().save(rules, 0);
+
+        Map<String, Object> st = start(Theme.EQUIVALENT, Level.HARD);
+        assertEquals(3, st.get("tasksTotal"));
+        assertEquals(4 * 60, st.get("timeLimitSec"));
+        assertTrue(((String) map(st.get("task")).get("text")).endsWith("отводится 4 минуты."));
+        Map<String, Object> old = quiz.state(running);              // начатый тест — по прежним правилам
+        assertEquals(2, old.get("tasksTotal"));
+        assertEquals(7 * 60, old.get("timeLimitSec"));
+
+        // сохранённое переживает перезапуск сервера, сброс возвращает значения из кода
+        ServerSettings again = new ServerSettings(repo);
+        assertEquals(new ThemeRules(3 * 60, 4 * 60, 3), again.rules(Theme.EQUIVALENT));
+        assertEquals(Theme.OHM.defaults(), again.rules(Theme.OHM));
+        assertEquals(0, again.values().retakeMin());
+        again.reset();
+        assertEquals(Theme.EQUIVALENT.defaults(), new ServerSettings(repo).rules(Theme.EQUIVALENT));
+        assertEquals(ServerSettings.DEFAULT_RETAKE_MIN, new ServerSettings(repo).values().retakeMin());
+    }
+
+    @Test
+    void zeroRetakePauseAllowsImmediateRetake() {
+        quiz.settings().save(Map.of(), 0);
+        String id = (String) start(Theme.OHM, Level.EASY).get("sessionId");
+        clock.advanceSeconds(Theme.OHM.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
+        quiz.state(id);
+        assertEquals("finished", quiz.next(id).get("status"));
+        assertEquals("task", start(Theme.OHM, Level.EASY).get("status"));
+    }
+
+    @Test
+    void invalidSettingsAreRejected() {
+        ServerSettings s = quiz.settings();
+        assertThrows(ServerError.class, () -> s.save(Map.of(Theme.OHM, new ThemeRules(0, 60, 1)), 15));
+        assertThrows(ServerError.class, () -> s.save(Map.of(Theme.OHM, new ThemeRules(61 * 60, 60, 1)), 15));
+        assertThrows(ServerError.class, () -> s.save(Map.of(Theme.OHM, new ThemeRules(90, 60, 1)), 15));
+        assertThrows(ServerError.class, () -> s.save(Map.of(Theme.OHM, new ThemeRules(60, 60, 0)), 15));
+        assertThrows(ServerError.class, () -> s.save(Map.of(Theme.OHM, new ThemeRules(60, 60, 6)), 15));
+        assertThrows(ServerError.class, () -> s.save(Map.of(), -1));
+        assertThrows(ServerError.class, () -> s.save(Map.of(), ServerSettings.MAX_RETAKE_MIN + 1));
+        assertEquals(Theme.OHM.defaults(), s.rules(Theme.OHM));      // ничего не записалось
+
+        // в теме без выбора сложности время одно — берётся время сложного уровня
+        s.save(Map.of(Theme.DIVIDERS, new ThemeRules(60, 8 * 60, 2)), 15);
+        assertEquals(new ThemeRules(8 * 60, 8 * 60, 2), s.rules(Theme.DIVIDERS));
     }
 }

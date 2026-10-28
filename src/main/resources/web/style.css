@@ -1,4 +1,4 @@
-/* Палитра и размеры взяты из настольного приложения (src/main/resources/style.css). */
+/* Палитра и размеры страниц студента и преподавателя. */
 * { box-sizing: border-box; }
 body { margin: 0; background: #f1f5f9; color: #1e293b; font: 14px "Segoe UI", system-ui, sans-serif;
        display: flex; flex-direction: column; min-height: 100vh; }   /* подвал прижат к низу окна */
@@ -76,7 +76,7 @@ input[type=text]:focus, select:focus { outline: none; border-color: #2563eb; }
 .grade-good { color: #16a34a; }
 .grade-bad { color: #dc2626; }
 
-/* на широком экране боковая панель справа, как в настольном приложении */
+/* на широком экране боковая панель справа */
 @media (min-width: 800px) {
   #quiz { display: grid; grid-template-columns: 1fr 280px; gap: 14px; align-items: start; }
   #quiz > .card { margin: 0; }
@@ -94,3 +94,21 @@ table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
 th { background: #f8fafc; color: #475569; }
 .secondary-btn { text-decoration: none; display: inline-block; }
+
+/* вкладки «Результаты» / «Настройки» */
+.tabs { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; }
+.tab { background: #e2e8f0; color: #0f172a; font: inherit; border: 0; border-radius: 8px; padding: 9px 18px;
+        cursor: pointer; }
+.tab:hover { background: #cbd5e1; }
+.tab.on { background: #2563eb; color: #fff; font-weight: bold; }
+.tabs-logout { margin-left: auto; }
+
+/* настройки тем */
+input.num { width: 80px; font: inherit; font-size: 15px; padding: 6px 8px; border: 1px solid #cbd5e1;
+        border-radius: 8px; background: #fff; color: #0f172a; }
+input.num:focus { outline: none; border-color: #2563eb; }
+input.num:invalid { border-color: #dc2626; }
+.settings td { vertical-align: middle; }
+.settings .theme-name { white-space: normal; min-width: 220px; }
+.retake { margin: 14px 0 0; }
+.retake input.num { display: inline-block; margin: 4px 8px 0 0; }

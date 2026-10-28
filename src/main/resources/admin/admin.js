@@ -1,6 +1,7 @@
 'use strict';
 
-// Страница преподавателя: вход по паролю, таблица результатов с фильтрами и выгрузка CSV.
+// Страница преподавателя: вход по паролю, таблица результатов с фильтрами, выгрузка CSV
+// и настройки тем (время на задание, число заданий, пауза перед пересдачей).
 // Пароль вводится в форму страницы (не в окно браузера) и подставляется в каждый запрос к /api/admin.
 // Хранится только до закрытия вкладки (sessionStorage).
 
@@ -26,8 +27,11 @@ function authHeader() {
   return 'Basic ' + btoa(String.fromCharCode(...bytes));
 }
 
-async function request(url) {
-  const res = await fetch(url, url.startsWith('/api/admin/') ? { headers: { Authorization: authHeader() } } : {});
+// body — объект, уходит как JSON
+async function request(url, method = 'GET', body) {
+  const headers = url.startsWith('/api/admin/') ? { Authorization: authHeader() } : {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   if (res.ok) return res;
   const data = await res.json().catch(() => null);
   const message = (data && data.error) || 'Ошибка сервера (' + res.status + ').';
@@ -47,9 +51,13 @@ function showLogin(message) {
   $('password').focus();
 }
 
-function fail(e) {
-  if (e instanceof AuthError) showLogin(e.message);
-  else $('error').textContent = e.message;
+function fail(e, target = 'error') {
+  if (e instanceof AuthError) {
+    showLogin(e.message);
+  } else {
+    $(target).textContent = e.message;
+    $(target).className = 'feedback fb-bad';
+  }
 }
 
 async function load() {
@@ -92,6 +100,104 @@ async function downloadCsv() {
   }
 }
 
+// ---------- вкладки ----------
+function showTab(name) {
+  for (const b of document.querySelectorAll('.tab')) b.classList.toggle('on', b.dataset.tab === name);
+  $('tab-results').hidden = name !== 'results';
+  $('tab-settings').hidden = name !== 'settings';
+  if (name === 'settings') loadSettings();       // каждый раз заново: настройки мог сменить другой преподаватель
+}
+
+// ---------- настройки ----------
+function numberInput(value, min, max, label) {
+  const i = document.createElement('input');
+  Object.assign(i, { type: 'number', className: 'num', min, max, step: 1, value, required: true });
+  i.setAttribute('aria-label', label);
+  return i;
+}
+
+function cell(tr, content, colSpan) {
+  const td = document.createElement('td');
+  if (typeof content === 'string') td.textContent = content; else td.appendChild(content);
+  if (colSpan) td.colSpan = colSpan;
+  tr.appendChild(td);
+  return td;
+}
+
+function renderSettings(s) {
+  const L = s.limits;
+  const body = $('settings-rows');
+  body.innerHTML = '';
+  for (const t of s.themes) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = t.id;
+    cell(tr, t.title).className = 'theme-name';
+    if (t.hasLevels) {
+      cell(tr, numberInput(t.easyMin, L.minMinutes, L.maxMinutes, t.title + ': лёгкий уровень, минут')).dataset.f = 'easyMin';
+      cell(tr, numberInput(t.hardMin, L.minMinutes, L.maxMinutes, t.title + ': сложный уровень, минут')).dataset.f = 'hardMin';
+    } else {                                   // без выбора сложности — одно время
+      const td = cell(tr, numberInput(t.hardMin, L.minMinutes, L.maxMinutes, t.title + ': минут'), 2);
+      td.dataset.f = 'hardMin';
+      td.append(' без выбора сложности');
+    }
+    cell(tr, numberInput(t.tasks, L.minTasks, L.maxTasks, t.title + ': заданий')).dataset.f = 'tasks';
+    const def = t.hasLevels && t.defaultEasyMin !== t.defaultHardMin
+      ? t.defaultEasyMin + ' / ' + t.defaultHardMin : String(t.defaultHardMin);
+    cell(tr, def + ' мин, заданий: ' + t.defaultTasks).className = 'muted';
+    body.appendChild(tr);
+  }
+  $('retake').value = s.retakeMin;
+  $('retake').max = L.maxRetakeMin;
+  $('retake-default').textContent = 'по умолчанию ' + s.defaultRetakeMin;
+}
+
+async function loadSettings() {
+  $('settings-msg').textContent = '';
+  try {
+    renderSettings(await get('/api/admin/settings'));
+  } catch (e) {
+    fail(e, 'settings-msg');
+  }
+}
+
+function collectSettings() {
+  const themes = [];
+  for (const tr of $('settings-rows').children) {
+    const t = { id: tr.dataset.id };
+    for (const td of tr.querySelectorAll('td[data-f]')) t[td.dataset.f] = td.querySelector('input').value;
+    if (t.easyMin === undefined) t.easyMin = t.hardMin;
+    themes.push(t);
+  }
+  return { themes, retakeMin: $('retake').value };
+}
+
+function settingsDone(s, text) {
+  renderSettings(s);
+  $('settings-msg').textContent = text;
+  $('settings-msg').className = 'feedback fb-ok';
+}
+
+async function saveSettings(ev) {
+  ev.preventDefault();
+  if (!$('settings-form').reportValidity()) return;     // браузер покажет, какое поле вне пределов
+  try {
+    const s = await (await request('/api/admin/settings', 'PUT', collectSettings())).json();
+    settingsDone(s, 'Сохранено. Новые значения действуют на тесты, начатые с этого момента.');
+  } catch (e) {
+    fail(e, 'settings-msg');
+  }
+}
+
+async function resetSettings() {
+  if (!confirm('Вернуть время, число заданий и паузу перед пересдачей к значениям по умолчанию?')) return;
+  try {
+    const s = await (await request('/api/admin/settings/reset', 'POST')).json();
+    settingsDone(s, 'Восстановлены значения по умолчанию.');
+  } catch (e) {
+    fail(e, 'settings-msg');
+  }
+}
+
 // Первый запрос с паролем заодно проверяет его: при неверном снова показывается форма входа
 async function enter() {
   try {
@@ -120,6 +226,9 @@ $('filters').addEventListener('submit', ev => {
   load();
 });
 $('csv').addEventListener('click', downloadCsv);
+for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => showTab(b.dataset.tab));
+$('settings-form').addEventListener('submit', saveSettings);
+$('settings-reset').addEventListener('click', resetSettings);
 $('logout').addEventListener('click', () => showLogin());
 
 if (password) enter(); else showLogin();

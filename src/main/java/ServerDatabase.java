@@ -50,6 +50,19 @@ final class ServerDatabase {
                 grade       REAL NOT NULL,
                 task_grades TEXT NOT NULL
             )""",
+            // настройки со страницы преподавателя; темы без строки работают по значениям из Theme
+            """
+            CREATE TABLE IF NOT EXISTS theme_settings (
+                theme    TEXT PRIMARY KEY,
+                easy_sec INTEGER NOT NULL,
+                hard_sec INTEGER NOT NULL,
+                tasks    INTEGER NOT NULL
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                name  TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )""",
             "CREATE INDEX IF NOT EXISTS idx_results_taken_at ON results(taken_at)",
             "CREATE INDEX IF NOT EXISTS idx_results_grp ON results(grp)",
             "CREATE INDEX IF NOT EXISTS idx_results_theme ON results(theme)",
@@ -72,7 +85,7 @@ final class ServerDatabase {
         config.enforceForeignKeys(true);
         try (Connection c = open(); Statement st = c.createStatement()) {
             for (String sql : SCHEMA) st.execute(sql);
-            st.execute("PRAGMA user_version = 1");
+            st.execute("PRAGMA user_version = 2");
         } catch (SQLException ex) {
             throw new IllegalStateException("Не удалось подготовить базу данных " + file, ex);
         }

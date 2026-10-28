@@ -13,8 +13,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Ход теста на сервере — те же правила, что в ElectroQuizApp: одно или два задания по теме (Theme.tasks), у каждого лимит времени
- * и число попыток уровня, оценка за задание по номеру удачной попытки, итог по {@link Grading}.
+ * Ход теста на сервере: несколько заданий по теме, у каждого лимит времени и число попыток уровня,
+ * оценка за задание по номеру удачной попытки, итог по {@link Grading}. Время и число заданий берутся
+ * из {@link ServerSettings} и запоминаются при старте теста.
  * Правильные ответы остаются на сервере и уходят в браузер только в сообщении о завершении задания.
  * Состояние активных тестов хранится в памяти (условие и ответы случайны и не восстанавливаются),
  * в базу попадает только завершённый тест. После перезапуска сервера незавершённые тесты теряются.
@@ -35,6 +36,7 @@ final class ServerQuizService {
         final Theme theme;
         final Level level;                // выбранный (null для темы без выбора сложности)
         final Level taskLevel;            // по которому реально решаются задания
+        final ThemeRules rules;           // время и число заданий на момент старта
         final TaskGenerator generator;
         final Random rnd;
         final List<Integer> grades = new ArrayList<>();
@@ -52,19 +54,21 @@ final class ServerQuizService {
         long resultId;
         Instant touched;
 
-        Session(long cadetId, String group, String surname, Theme theme, Level level, Random rnd) {
+        Session(long cadetId, String group, String surname, Theme theme, Level level, ThemeRules rules, Random rnd) {
             this.cadetId = cadetId;
             this.group = group;
             this.surname = surname;
             this.theme = theme;
             this.level = level;
             this.taskLevel = theme.effectiveLevel(level);
-            this.generator = theme.newGenerator();
+            this.rules = rules;
+            this.generator = theme.newGenerator(rules);
             this.rnd = rnd;
         }
     }
 
     private final ServerRepository repo;
+    private final ServerSettings settings;
     private final Clock clock;
     private final Supplier<Random> randoms;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
@@ -76,6 +80,7 @@ final class ServerQuizService {
     /** Часы и источник случайности подменяются в тестах. */
     ServerQuizService(ServerRepository repo, Clock clock, Supplier<Random> randoms) {
         this.repo = repo;
+        this.settings = new ServerSettings(repo);
         this.clock = clock;
         this.randoms = randoms;
     }
@@ -99,7 +104,9 @@ final class ServerQuizService {
         if (sessions.size() >= MAX_ACTIVE) throw new ServerError(503, "Сервер перегружен, попробуйте позже.");
 
         long cadetId = repo.upsertCadet(g, s, LocalDateTime.now(clock));
-        Session ses = new Session(cadetId, g, s, theme, theme.hasLevels ? level : null, randoms.get());
+        checkRetake(cadetId, theme);
+        Session ses = new Session(cadetId, g, s, theme, theme.hasLevels ? level : null, settings.rules(theme),
+                randoms.get());
         synchronized (ses) {
             repo.createSession(ses.id, cadetId, theme, ses.level, LocalDateTime.now(clock));
             sessions.put(ses.id, ses);
@@ -169,7 +176,7 @@ final class ServerQuizService {
             if (ses.finished) return view(ses);
             expireIfNeeded(ses);
             if (!ses.taskDone) throw ServerError.conflict("Сначала завершите текущее задание.");
-            if (ses.grades.size() < ses.theme.tasks) {
+            if (ses.grades.size() < ses.rules.tasks()) {
                 startTask(ses);
             } else {
                 ses.finalGrade = Grading.finalGrade(ses.grades);
@@ -184,11 +191,28 @@ final class ServerQuizService {
         }
     }
 
+    ServerSettings settings() {
+        return settings;
+    }
+
     int activeCount() {
         return sessions.size();
     }
 
     // ---------- внутреннее ----------
+
+    /** Пересдача темы — не раньше чем через паузу из настроек после окончания прошлого теста по ней. */
+    private void checkRetake(long cadetId, Theme theme) {
+        Duration pause = settings.retakePause();
+        if (pause.isZero()) return;
+        LocalDateTime last = repo.lastFinished(cadetId, theme);
+        if (last == null) return;
+        long left = Duration.between(LocalDateTime.now(clock), last.plus(pause)).toSeconds();
+        if (left > 0) {
+            throw ServerError.conflict("Пересдать эту тему можно через " + (left + 59) / 60
+                    + " мин.: между попытками должно пройти " + ThemeRules.minutes((int) pause.toMinutes()) + ".");
+        }
+    }
 
     private void startTask(Session ses) {
         ses.taskNumber++;
@@ -199,7 +223,7 @@ final class ServerQuizService {
         ses.chartJson = null;
         ses.task = ses.generator.next(ses.taskLevel, ses.rnd);
         ses.schemeJson = ServerSchemeJson.of(ses.task.scheme(), ses.rnd);
-        ses.deadline = Instant.now(clock).plusSeconds(ses.theme.timeLimitSec(ses.taskLevel));
+        ses.deadline = Instant.now(clock).plusSeconds(ses.rules.timeLimitSec(ses.taskLevel));
         touch(ses);
     }
 
@@ -251,7 +275,7 @@ final class ServerQuizService {
         m.put("theme", ses.theme.title);
         m.put("hasLevels", ses.theme.hasLevels);
         m.put("level", ses.level == null ? null : ses.level.title);
-        m.put("tasksTotal", ses.theme.tasks);
+        m.put("tasksTotal", ses.rules.tasks());
         if (ses.message != null) {
             m.put("message", ses.message);
             m.put("messageKind", ses.messageKind);
@@ -278,12 +302,12 @@ final class ServerQuizService {
         m.put("attempt", ses.attempt);
         m.put("attemptsMax", ses.taskLevel.attempts);
         m.put("rules", ses.taskLevel.rules());
-        m.put("timeLimitSec", ses.theme.timeLimitSec(ses.taskLevel));
+        m.put("timeLimitSec", ses.rules.timeLimitSec(ses.taskLevel));
         long left = Duration.between(Instant.now(clock), ses.deadline).toMillis();
         m.put("secondsLeft", ses.taskDone ? 0 : Math.max(0, (left + 999) / 1000));
         if (ses.taskDone) {
             m.put("taskGrade", ses.taskGrade);
-            m.put("lastTask", ses.taskNumber >= ses.theme.tasks);
+            m.put("lastTask", ses.taskNumber >= ses.rules.tasks());
         }
 
         Map<String, Object> task = new LinkedHashMap<>();

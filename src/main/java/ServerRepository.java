@@ -7,7 +7,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Доступ к данным: курсанты, сессии тестов и результаты. Чистый JDBC, все значения — через параметры. */
@@ -131,6 +134,21 @@ final class ServerRepository {
         }
     }
 
+    /** Когда курсант последний раз закончил тест по теме; null — ещё не заканчивал. */
+    LocalDateTime lastFinished(long cadetId, Theme theme) {
+        try (Connection c = db.open(); PreparedStatement ps = c.prepareStatement(
+                "SELECT MAX(taken_at) FROM results WHERE cadet_id = ? AND theme = ?")) {
+            ps.setLong(1, cadetId);
+            ps.setString(2, theme.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                String s = rs.next() ? rs.getString(1) : null;
+                return s == null ? null : LocalDateTime.parse(s, ISO);
+            }
+        } catch (SQLException ex) {
+            throw fail(ex);
+        }
+    }
+
     /**
      * Записи журнала по фильтру: по группе, внутри группы по фамилии (русский алфавит),
      * у одного курсанта новые попытки сверху. Сортировка в SQL, чтобы LIMIT/OFFSET делили уже упорядоченный список.
@@ -168,6 +186,75 @@ final class ServerRepository {
                 rs.next();
                 return rs.getLong(1);
             }
+        } catch (SQLException ex) {
+            throw fail(ex);
+        }
+    }
+
+    // ---------- настройки ----------
+
+    /** Изменённые правила тем. Строки тем, которых больше нет в коде, пропускаются. */
+    Map<Theme, ThemeRules> themeRules() {
+        try (Connection c = db.open(); Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT theme, easy_sec, hard_sec, tasks FROM theme_settings")) {
+            Map<Theme, ThemeRules> map = new EnumMap<>(Theme.class);
+            while (rs.next()) {
+                String name = rs.getString(1);
+                Theme t = Arrays.stream(Theme.values()).filter(x -> x.name().equals(name)).findFirst().orElse(null);
+                if (t != null) map.put(t, new ThemeRules(rs.getInt(2), rs.getInt(3), rs.getInt(4)));
+            }
+            return map;
+        } catch (SQLException ex) {
+            throw fail(ex);
+        }
+    }
+
+    /** Значение настройки или null, если её не меняли. */
+    String setting(String name) {
+        try (Connection c = db.open(); PreparedStatement ps = c.prepareStatement("SELECT value FROM settings WHERE name = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        } catch (SQLException ex) {
+            throw fail(ex);
+        }
+    }
+
+    /** Записывает правила тем и настройки одной транзакцией (заменяя прежние значения). */
+    void saveSettings(Map<Theme, ThemeRules> rules, Map<String, String> settings) {
+        try (Connection c = db.open()) {
+            c.setAutoCommit(false);
+            try (PreparedStatement th = c.prepareStatement(
+                         "INSERT OR REPLACE INTO theme_settings (theme, easy_sec, hard_sec, tasks) VALUES (?, ?, ?, ?)");
+                 PreparedStatement st = c.prepareStatement("INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)")) {
+                for (Map.Entry<Theme, ThemeRules> e : rules.entrySet()) {
+                    th.setString(1, e.getKey().name());
+                    th.setInt(2, e.getValue().easySec());
+                    th.setInt(3, e.getValue().hardSec());
+                    th.setInt(4, e.getValue().tasks());
+                    th.executeUpdate();
+                }
+                for (Map.Entry<String, String> e : settings.entrySet()) {
+                    st.setString(1, e.getKey());
+                    st.setString(2, e.getValue());
+                    st.executeUpdate();
+                }
+                c.commit();
+            } catch (SQLException | RuntimeException ex) {
+                c.rollback();
+                throw ex;
+            }
+        } catch (SQLException ex) {
+            throw fail(ex);
+        }
+    }
+
+    /** Удаляет все изменённые настройки: дальше действуют значения из кода. */
+    void resetSettings() {
+        try (Connection c = db.open(); Statement st = c.createStatement()) {
+            st.executeUpdate("DELETE FROM theme_settings");
+            st.executeUpdate("DELETE FROM settings");
         } catch (SQLException ex) {
             throw fail(ex);
         }

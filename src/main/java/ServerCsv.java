@@ -1,13 +1,16 @@
 import java.nio.charset.StandardCharsets;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Выгрузка журнала в CSV в формате {@link ResultLog} (UTF-8 с BOM, разделитель «;» — для Excel)
- * плюс столбец «Группа» после времени. «№» — номер записи в базе: он не меняется от фильтров.
+ * Выгрузка журнала в CSV (UTF-8 с BOM, разделитель «;» — для Excel).
+ * «№» — номер записи в базе: он не меняется от фильтров.
  */
 final class ServerCsv {
 
-    static final String HEADER = ResultLog.HEADER.replace("Имя", "Группа;Имя");
+    static final String HEADER = "№;Дата;Время;Группа;Имя;Тема;Сложность;Оценка";
+    static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private ServerCsv() {
     }
@@ -16,8 +19,8 @@ final class ServerCsv {
         StringBuilder sb = new StringBuilder("﻿").append(HEADER).append("\r\n");
         for (ServerRepository.ResultRow r : rows) {
             sb.append(r.id()).append(';')
-              .append(ResultLog.DATE.format(r.when())).append(';')
-              .append(ResultLog.TIME.format(r.when())).append(';')
+              .append(DATE.format(r.when())).append(';')
+              .append(TIME.format(r.when())).append(';')
               .append(cell(r.group())).append(';')
               .append(cell(r.surname())).append(';')
               .append(r.theme().title).append(';')

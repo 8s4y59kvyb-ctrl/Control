@@ -4,7 +4,7 @@
 // таймер (отсчёт от secondsLeft сервера) и отрисовка схемы по командам с сервера.
 
 const $ = id => document.getElementById(id);
-const FLOW_SPEED = 70;                       // скорость точек тока, как в настольном приложении, px/с
+const FLOW_SPEED = 70;                       // скорость точек тока, px/с
 const SESSION_KEY = 'electroquiz.session';
 
 let meta = null;                             // темы и уровни с сервера

@@ -4,67 +4,79 @@
  * два задания по 5 минут, без выбора сложности). Тема 4 — реактивное сопротивление катушки и конденсатора
  * на нескольких частотах (два задания: 7 минут на лёгком уровне, 10 на сложном). Тема 5 — последовательный
  * колебательный контур: f0, ρ, Q и UL (два задания по 15 минут).
+ * Время и число заданий здесь — значения по умолчанию; преподаватель может изменить их на странице /admin.
  */
 enum Theme {
     OHM("Закон Ома и Кирхгофа в электрических цепях", 10 * 60, 15 * 60, 1, true,
-            "Одно задание: по схеме найти токи ветвей и напряжения участков цепи.") {
+            "по схеме найти токи ветвей и напряжения участков цепи.") {
         @Override
-        TaskGenerator newGenerator() {
-            return new LadderTasks(false, this::minutesText);     // ищем токи ветвей и напряжения участков
+        TaskGenerator newGenerator(ThemeRules rules) {
+            return new LadderTasks(false, rules::minutesText);    // ищем токи ветвей и напряжения участков
         }
     },
     EQUIVALENT("Эквивалентные преобразования в электрических цепях", 7 * 60, 7 * 60, 2, true,
-            "Два задания: найти общее сопротивление, эквивалентную ёмкость или индуктивность цепи.") {
+            "найти общее сопротивление, эквивалентную ёмкость или индуктивность цепи.") {
         @Override
-        TaskGenerator newGenerator() {
-            return new LadderTasks(true, this::minutesText);      // ищем общее сопротивление Z
+        TaskGenerator newGenerator(ThemeRules rules) {
+            return new LadderTasks(true, rules::minutesText);     // ищем общее сопротивление Z
         }
     },
     DIVIDERS("Делители тока и напряжения", 5 * 60, 5 * 60, 2, false,
-            "Два задания: делитель тока и делитель напряжения, в каждом найти два значения. "
+            "делитель тока и делитель напряжения по очереди, в каждом найти два значения. "
                     + "Выбора сложности нет: три попытки.") {
         @Override
-        TaskGenerator newGenerator() {
-            return new DividerTasks(this::minutesText);
+        TaskGenerator newGenerator(ThemeRules rules) {
+            return new DividerTasks(rules::minutesText);
         }
     },
     AC_REACTANCE("Переменный ток. Сопротивление реактивных элементов", 7 * 60, 10 * 60, 2, true,
-            "Два задания: сопротивление катушки, затем конденсатора на нескольких частотах "
+            "сопротивление катушки и конденсатора по очереди на нескольких частотах "
                     + "(5 частот на лёгком уровне, 6 на сложном). После верного ответа — график "
                     + "зависимости сопротивления от частоты.") {
         @Override
-        TaskGenerator newGenerator() {
-            return new ReactanceTasks(this::minutesText);   // XL и XC на 5–6 частотах
+        TaskGenerator newGenerator(ThemeRules rules) {
+            return new ReactanceTasks(rules::minutesText);  // XL и XC на 5–6 частотах
         }
     },
     RESONANCE("Переменный ток. Последовательный колебательный контур", 15 * 60, 15 * 60, 2, true,
-            "Два задания: в последовательном контуре R–L–C найти резонансную частоту, волновое сопротивление, "
+            "в последовательном контуре R–L–C найти резонансную частоту, волновое сопротивление, "
                     + "добротность и напряжение на катушке. После задания — график напряжения на катушке "
                     + "от частоты.") {
         @Override
-        TaskGenerator newGenerator() {
-            return new ResonanceTasks(this::minutesText);   // f0, ρ, Q и UL; график UL(f) после задания
+        TaskGenerator newGenerator(ThemeRules rules) {
+            return new ResonanceTasks(rules::minutesText);  // f0, ρ, Q и UL; график UL(f) после задания
         }
     };
 
+    private static final String[] COUNT = {"Одно задание", "Два задания", "Три задания", "Четыре задания",
+            "Пять заданий"};
+
     final String title;
-    private final int easySec;    // время на одно задание лёгкого уровня
-    private final int hardSec;    // … сложного уровня
-    final int tasks;              // заданий в тесте
+    final int tasks;              // заданий в тесте (по умолчанию)
     final boolean hasLevels;      // можно ли выбрать сложность
+    private final ThemeRules defaults;
     private final String about;   // что предстоит сделать, для описания при выборе темы
 
     Theme(String title, int easySec, int hardSec, int tasks, boolean hasLevels, String about) {
         this.title = title;
-        this.easySec = easySec;
-        this.hardSec = hardSec;
         this.tasks = tasks;
         this.hasLevels = hasLevels;
+        this.defaults = new ThemeRules(easySec, hardSec, tasks);
         this.about = about;
     }
 
-    /** Новый генератор заданий; создаётся на каждый тест. Только для готовых тем ({@link #ready}). */
-    abstract TaskGenerator newGenerator();
+    /** Новый генератор заданий с временем из rules; создаётся на каждый тест. Только для готовых тем ({@link #ready}). */
+    abstract TaskGenerator newGenerator(ThemeRules rules);
+
+    /** Генератор с правилами по умолчанию. */
+    TaskGenerator newGenerator() {
+        return newGenerator(defaults);
+    }
+
+    /** Время и число заданий, заданные в коде. */
+    ThemeRules defaults() {
+        return defaults;
+    }
 
     /** Есть ли в теме задания; тему «в разработке» видно в списке, но тест по ней не начать. */
     boolean ready() {
@@ -76,22 +88,27 @@ enum Theme {
         return hasLevels ? chosen : Level.HARD;
     }
 
-    /** Время на одно задание уровня level (уже приведённого через {@link #effectiveLevel}). */
+    /** Время на одно задание уровня level по умолчанию (уровень уже приведён через {@link #effectiveLevel}). */
     int timeLimitSec(Level level) {
-        return level == Level.HARD ? hardSec : easySec;
+        return defaults.timeLimitSec(level);
     }
 
     String minutesText(Level level) {
-        return (timeLimitSec(level) / 60) + " минут";
+        return defaults.minutesText(level);
     }
 
-    /** Описание при выборе темы: задания и время, например «… На каждое задание — 7 минут». */
     String description() {
-        String on = tasks > 1 ? "На каждое задание — " : "На задание — ";
-        String time = !hasLevels || easySec == hardSec
-                ? minutesText(Level.HARD)
-                : minutesText(Level.EASY) + " на лёгком уровне, " + minutesText(Level.HARD) + " на сложном";
-        return about + " " + on + time + ".";
+        return description(defaults);
+    }
+
+    /** Описание при выборе темы: число заданий, что сделать и время, например «… На каждое задание — 7 минут». */
+    String description(ThemeRules rules) {
+        String count = rules.tasks() <= COUNT.length ? COUNT[rules.tasks() - 1] : "Заданий: " + rules.tasks();
+        String on = rules.tasks() > 1 ? "На каждое задание — " : "На задание — ";
+        String time = !hasLevels || rules.easySec() == rules.hardSec()
+                ? rules.minutesText(Level.HARD)
+                : rules.minutesText(Level.EASY) + " на лёгком уровне, " + rules.minutesText(Level.HARD) + " на сложном";
+        return count + ": " + about + " " + on + time + ".";
     }
 
     @Override
