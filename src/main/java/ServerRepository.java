@@ -221,14 +221,24 @@ final class ServerRepository {
         }
     }
 
-    /** Записывает правила тем и настройки одной транзакцией (заменяя прежние значения). */
+    /**
+     * Записывает правила тем и настройки одной транзакцией (заменяя прежние значения).
+     * Значение null удаляет строку: дальше действует значение из кода.
+     */
     void saveSettings(Map<Theme, ThemeRules> rules, Map<String, String> settings) {
         try (Connection c = db.open()) {
             c.setAutoCommit(false);
             try (PreparedStatement th = c.prepareStatement(
                          "INSERT OR REPLACE INTO theme_settings (theme, easy_sec, hard_sec, tasks) VALUES (?, ?, ?, ?)");
-                 PreparedStatement st = c.prepareStatement("INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)")) {
+                 PreparedStatement thDel = c.prepareStatement("DELETE FROM theme_settings WHERE theme = ?");
+                 PreparedStatement st = c.prepareStatement("INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)");
+                 PreparedStatement stDel = c.prepareStatement("DELETE FROM settings WHERE name = ?")) {
                 for (Map.Entry<Theme, ThemeRules> e : rules.entrySet()) {
+                    if (e.getValue() == null) {
+                        thDel.setString(1, e.getKey().name());
+                        thDel.executeUpdate();
+                        continue;
+                    }
                     th.setString(1, e.getKey().name());
                     th.setInt(2, e.getValue().easySec());
                     th.setInt(3, e.getValue().hardSec());
@@ -236,6 +246,11 @@ final class ServerRepository {
                     th.executeUpdate();
                 }
                 for (Map.Entry<String, String> e : settings.entrySet()) {
+                    if (e.getValue() == null) {
+                        stDel.setString(1, e.getKey());
+                        stDel.executeUpdate();
+                        continue;
+                    }
                     st.setString(1, e.getKey());
                     st.setString(2, e.getValue());
                     st.executeUpdate();

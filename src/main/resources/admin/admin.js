@@ -109,10 +109,14 @@ function showTab(name) {
 }
 
 // ---------- настройки ----------
-function numberInput(value, min, max, label) {
+// def — значение по умолчанию: отличающееся подсвечивается (в базе хранятся только такие)
+function numberInput(value, min, max, label, def) {
   const i = document.createElement('input');
   Object.assign(i, { type: 'number', className: 'num', min, max, step: 1, value, required: true });
   i.setAttribute('aria-label', label);
+  const mark = () => i.classList.toggle('changed', i.value !== String(def));
+  i.addEventListener('input', mark);
+  mark();
   return i;
 }
 
@@ -133,14 +137,16 @@ function renderSettings(s) {
     tr.dataset.id = t.id;
     cell(tr, t.title).className = 'theme-name';
     if (t.hasLevels) {
-      cell(tr, numberInput(t.easyMin, L.minMinutes, L.maxMinutes, t.title + ': лёгкий уровень, минут')).dataset.f = 'easyMin';
-      cell(tr, numberInput(t.hardMin, L.minMinutes, L.maxMinutes, t.title + ': сложный уровень, минут')).dataset.f = 'hardMin';
+      cell(tr, numberInput(t.easyMin, L.minMinutes, L.maxMinutes, t.title + ': лёгкий уровень, минут',
+        t.defaultEasyMin)).dataset.f = 'easyMin';
+      cell(tr, numberInput(t.hardMin, L.minMinutes, L.maxMinutes, t.title + ': сложный уровень, минут',
+        t.defaultHardMin)).dataset.f = 'hardMin';
     } else {                                   // без выбора сложности — одно время
-      const td = cell(tr, numberInput(t.hardMin, L.minMinutes, L.maxMinutes, t.title + ': минут'), 2);
+      const td = cell(tr, numberInput(t.hardMin, L.minMinutes, L.maxMinutes, t.title + ': минут', t.defaultHardMin), 2);
       td.dataset.f = 'hardMin';
       td.append(' без выбора сложности');
     }
-    cell(tr, numberInput(t.tasks, L.minTasks, L.maxTasks, t.title + ': заданий')).dataset.f = 'tasks';
+    cell(tr, numberInput(t.tasks, L.minTasks, L.maxTasks, t.title + ': заданий', t.defaultTasks)).dataset.f = 'tasks';
     const def = t.hasLevels && t.defaultEasyMin !== t.defaultHardMin
       ? t.defaultEasyMin + ' / ' + t.defaultHardMin : String(t.defaultHardMin);
     cell(tr, def + ' мин, заданий: ' + t.defaultTasks).className = 'muted';
@@ -148,6 +154,8 @@ function renderSettings(s) {
   }
   $('retake').value = s.retakeMin;
   $('retake').max = L.maxRetakeMin;
+  $('retake').oninput = () => $('retake').classList.toggle('changed', $('retake').value !== String(s.defaultRetakeMin));
+  $('retake').oninput();
   $('retake-default').textContent = 'по умолчанию ' + s.defaultRetakeMin;
 }
 

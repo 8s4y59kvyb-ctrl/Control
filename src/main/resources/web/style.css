@@ -112,3 +112,5 @@ input.num:invalid { border-color: #dc2626; }
 .settings .theme-name { white-space: normal; min-width: 220px; }
 .retake { margin: 14px 0 0; }
 .retake input.num { display: inline-block; margin: 4px 8px 0 0; }
+input.num.changed { border-color: #d97706; background: #fffbeb; }
+.changed-note { background: #fffbeb; border: 1px solid #d97706; border-radius: 4px; padding: 0 4px; color: #92400e; }

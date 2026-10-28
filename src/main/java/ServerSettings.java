@@ -1,11 +1,14 @@
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Настройки, которые преподаватель меняет на странице /admin: время на задание и число заданий по темам,
- * пауза перед пересдачей. Хранятся в базе; чего там нет — берётся из {@link Theme#defaults()}.
+ * пауза перед пересдачей. В базе хранится только то, что отличается от значений по умолчанию
+ * ({@link Theme#defaults()}, {@link #DEFAULT_RETAKE_MIN}); остальное берётся из кода, поэтому новые значения
+ * по умолчанию после обновления программы применяются сами.
  * Тест запоминает правила темы при старте, поэтому сохранение действует только на новые тесты.
  */
 final class ServerSettings {
@@ -42,6 +45,7 @@ final class ServerSettings {
     /**
      * Проверяет и сохраняет новые значения. Темы, которых нет в rules, не меняются.
      * В теме без выбора сложности время одно: берётся время сложного уровня.
+     * Значение, совпавшее со значением по умолчанию, из базы удаляется.
      */
     synchronized Values save(Map<Theme, ThemeRules> rules, int retakeMin) {
         if (retakeMin < 0 || retakeMin > MAX_RETAKE_MIN) {
@@ -58,9 +62,11 @@ final class ServerSettings {
                 throw ServerError.badRequest("Тема " + (t.ordinal() + 1) + ": заданий — от " + MIN_TASKS
                         + " до " + MAX_TASKS + ".");
             }
-            checked.put(t, r);
+            checked.put(t, r.equals(t.defaults()) ? null : r);       // null — удалить: действует значение из кода
         }
-        repo.saveSettings(checked, Map.of(RETAKE, String.valueOf(retakeMin)));
+        Map<String, String> other = new HashMap<>();
+        other.put(RETAKE, retakeMin == DEFAULT_RETAKE_MIN ? null : String.valueOf(retakeMin));
+        repo.saveSettings(checked, other);
         current = load();
         return current;
     }

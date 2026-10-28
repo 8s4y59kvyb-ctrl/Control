@@ -327,6 +327,26 @@ class ServerQuizServiceTest {
     }
 
     @Test
+    void onlyChangedValuesAreStored() {
+        ServerSettings s = quiz.settings();
+        Map<Theme, ThemeRules> rules = new EnumMap<>(Theme.class);
+        rules.put(Theme.OHM, new ThemeRules(3 * 60, 15 * 60, 1));
+        rules.put(Theme.DIVIDERS, new ThemeRules(6 * 60, 6 * 60, 2));
+        s.save(rules, 20);
+        assertEquals(Map.of(Theme.OHM, new ThemeRules(3 * 60, 15 * 60, 1), Theme.DIVIDERS, new ThemeRules(6 * 60, 6 * 60, 2)),
+                repo.themeRules());
+        assertEquals("20", repo.setting("retake_min"));
+
+        // вернули значения по умолчанию — строки удаляются, тема снова следует за кодом
+        rules.put(Theme.OHM, Theme.OHM.defaults());
+        s.save(rules, ServerSettings.DEFAULT_RETAKE_MIN);
+        assertEquals(Map.of(Theme.DIVIDERS, new ThemeRules(6 * 60, 6 * 60, 2)), repo.themeRules());
+        assertNull(repo.setting("retake_min"));
+        assertEquals(Theme.OHM.defaults(), s.rules(Theme.OHM));
+        assertEquals(ServerSettings.DEFAULT_RETAKE_MIN, s.values().retakeMin());
+    }
+
+    @Test
     void zeroRetakePauseAllowsImmediateRetake() {
         quiz.settings().save(Map.of(), 0);
         finishByTimeout((String) start(Theme.OHM, Level.EASY).get("sessionId"), Theme.OHM, Level.EASY);
