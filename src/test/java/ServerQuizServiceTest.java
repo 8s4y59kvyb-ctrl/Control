@@ -51,7 +51,7 @@ class ServerQuizServiceTest {
         assertEquals("Иванов", st.get("surname"));
         assertEquals(1, st.get("attemptsMax"));
 
-        assertEquals(1, st.get("tasksTotal"));                          // в теме 1 одно задание
+        assertEquals(2, st.get("tasksTotal"));                          // в теме 1 прямая и обратная задачи
         for (int n = 0; n < Theme.OHM.tasks; n++) {
             st = quiz.answer(id, ServerTestSupport.answers(Theme.OHM, Level.EASY, SEED, n));
             assertEquals("task_done", st.get("status"));
@@ -266,12 +266,19 @@ class ServerQuizServiceTest {
         assertEquals(n, svc.activeCount());
     }
 
+    /** Доводит тест до конца, пропуская время каждого задания. */
+    private void finishByTimeout(String id, Theme theme, Level level) {
+        for (int n = 0; n < theme.tasks; n++) {
+            clock.advanceSeconds(theme.timeLimitSec(level) + ServerQuizService.GRACE_SEC + 1);
+            assertEquals("task_done", quiz.state(id).get("status"));  // время вышло — задание закрыто
+            quiz.next(id);
+        }
+        assertEquals("finished", quiz.state(id).get("status"));
+    }
+
     @Test
     void retakeOfSameThemeOnlyAfterPause() {
-        String id = (String) start(Theme.OHM, Level.EASY).get("sessionId");
-        clock.advanceSeconds(Theme.OHM.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
-        assertEquals("task_done", quiz.state(id).get("status"));      // время вышло — задание закрыто
-        assertEquals("finished", quiz.next(id).get("status"));
+        finishByTimeout((String) start(Theme.OHM, Level.EASY).get("sessionId"), Theme.OHM, Level.EASY);
 
         ServerError e = assertThrows(ServerError.class, () -> start(Theme.OHM, Level.HARD));
         assertEquals(409, e.status);
@@ -322,10 +329,7 @@ class ServerQuizServiceTest {
     @Test
     void zeroRetakePauseAllowsImmediateRetake() {
         quiz.settings().save(Map.of(), 0);
-        String id = (String) start(Theme.OHM, Level.EASY).get("sessionId");
-        clock.advanceSeconds(Theme.OHM.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
-        quiz.state(id);
-        assertEquals("finished", quiz.next(id).get("status"));
+        finishByTimeout((String) start(Theme.OHM, Level.EASY).get("sessionId"), Theme.OHM, Level.EASY);
         assertEquals("task", start(Theme.OHM, Level.EASY).get("status"));
     }
 

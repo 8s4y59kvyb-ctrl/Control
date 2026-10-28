@@ -196,7 +196,7 @@ class ServerAppTest {
         assertEquals(10, s.get("themes").get(0).get("easyMin").asInt());
         assertEquals(15, s.get("retakeMin").asInt());
 
-        String body = "{\"retakeMin\":5,\"themes\":[{\"id\":\"OHM\",\"easyMin\":\"3\",\"hardMin\":4,\"tasks\":2}]}";
+        String body = "{\"retakeMin\":5,\"themes\":[{\"id\":\"OHM\",\"easyMin\":\"3\",\"hardMin\":4,\"tasks\":3}]}";
         HttpResponse<String> saved = send("PUT", "/api/admin/settings", body, "secret");
         assertEquals(200, saved.statusCode(), saved.body());
         assertEquals(5, json(saved).get("retakeMin").asInt());
@@ -204,8 +204,8 @@ class ServerAppTest {
         JsonNode ohm = json(send("GET", "/api/themes", null, null)).get("themes").get(0);
         assertEquals(3 * 60, ohm.get("timeLimitSec").asInt());
         assertEquals(4 * 60, ohm.get("timeLimitHardSec").asInt());
-        assertEquals(2, ohm.get("tasks").asInt());
-        assertTrue(ohm.get("description").asText().startsWith("Два задания"));
+        assertEquals(3, ohm.get("tasks").asInt());
+        assertTrue(ohm.get("description").asText().startsWith("Три задания"));
 
         HttpResponse<String> bad = send("PUT", "/api/admin/settings",
                 "{\"retakeMin\":5,\"themes\":[{\"id\":\"OHM\",\"easyMin\":0,\"hardMin\":4,\"tasks\":2}]}", "secret");

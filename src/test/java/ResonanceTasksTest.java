@@ -12,7 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Проверяет генерацию задач темы 5: ответы f0, ρ, Q и UL по формулам последовательного контура,
- * целые ρ, Q и ω0, частота задания не резонансная, график UL(f) при любом исходе.
+ * f0, ρ, Q и I — параллельного (второе задание), целые ρ, Q и ω0, частота задания не резонансная,
+ * график при любом исходе.
  */
 class ResonanceTasksTest {
 
@@ -43,11 +44,57 @@ class ResonanceTasksTest {
             assertTrue(s.r() >= 2);
             assertEquals(0, s.f() % 10);
             assertNotEquals(Math.round(f0), s.f());
-            assertEquals("колебательный контур", task.kind());
+            assertEquals("последовательный контур", task.kind());
             assertTrue(task.text().endsWith("отводится " + Theme.RESONANCE.minutesText(level) + "."));
             assertTrue(task.showsChart(false));                      // график и после неверного ответа
             assertTrue(task.scheme().flowPaths(new Random()).isEmpty());
         }
+    }
+
+    @RepeatedTest(50)
+    void secondTaskIsParallelContour() {
+        for (Level level : Level.values()) {
+            TaskGenerator gen = Theme.RESONANCE.newGenerator();
+            Random rnd = new Random();
+            assertEquals("последовательный контур", gen.next(level, rnd).kind());
+            Task task = gen.next(level, rnd);
+            assertEquals("последовательный контур", gen.next(level, rnd).kind());   // дальше снова по очереди
+            assertEquals("параллельный контур", task.kind());
+
+            ParallelResonanceScheme s = (ParallelResonanceScheme) task.scheme();
+            double l = s.l() * 1e-3, c = s.c() * 1e-6;
+            double f0 = 1 / (2 * Math.PI * Math.sqrt(l * c)), rho = Math.sqrt(l / c), q = s.r() / rho;
+            double bl = 1 / (2 * Math.PI * s.f() * l), bc = 2 * Math.PI * s.f() * c;     // проводимости 1/XL и 1/XC
+            double i = s.u() * Math.sqrt(1.0 / (s.r() * s.r()) + (bl - bc) * (bl - bc));
+
+            List<Answer> a = task.answers();
+            assertEquals(List.of("f0", "ρ", "Q", "I"), a.stream().map(Answer::symbol).toList());
+            boolean ma = i < 1;                                               // меньше 1 А — в миллиамперах
+            assertEquals(List.of("Гц", "Ом", "", ma ? "мА" : "А"), a.stream().map(Answer::unit).toList());
+            double scale = ma ? 1000 : 1;
+            assertEquals(f0, a.get(0).value(), 1e-9 * f0);
+            assertEquals(rho, a.get(1).value(), 1e-9 * rho);
+            assertEquals(q, a.get(2).value(), 1e-9 * q);
+            assertEquals(scale * i, a.get(3).value(), 1e-9 * scale * i);
+
+            assertTrue(List.of(2.0, 4.0, 5.0, 10.0).contains(Math.rint(q)));     // Q = R/ρ — целое
+            assertEquals(Math.rint(q), q, 1e-9);
+            assertTrue(i > (double) s.u() / s.r(), "вне резонанса ток больше, чем I0 = U/R");
+            assertTrue(a.get(3).value() >= 1, "ответ заметно больше допуска 0,01");
+            assertTrue(task.text().contains(ma ? "(в миллиамперах)" : "(в амперах)"), task.text());
+            assertNotEquals(Math.round(f0), s.f());
+            assertTrue(task.text().startsWith("Параллельный колебательный контур"));
+            assertTrue(task.text().endsWith("отводится " + Theme.RESONANCE.minutesText(level) + "."));
+            assertTrue(task.showsChart(false));
+            assertTrue(((ResonanceChart) task.chart()).parallel());
+        }
+    }
+
+    @Test
+    void tickLabels() {
+        assertEquals("250", ResonanceChart.tick(250));
+        assertEquals("2,5", ResonanceChart.tick(2.5));
+        assertEquals("0,25", ResonanceChart.tick(0.25));
     }
 
     @Test
@@ -72,8 +119,10 @@ class ResonanceTasksTest {
 
     @RepeatedTest(20)
     void schemeAndChartDraw() {
-        Task task = Theme.RESONANCE.newGenerator().next(Level.HARD, new Random());
-        for (Scheme sc : List.of(task.scheme(), task.chart())) {
+        TaskGenerator gen = Theme.RESONANCE.newGenerator();
+        Random rnd = new Random();
+        Task series = gen.next(Level.HARD, rnd), parallel = gen.next(Level.HARD, rnd);
+        for (Scheme sc : List.of(series.scheme(), series.chart(), parallel.scheme(), parallel.chart())) {
             Map<String, Object> json = ServerSchemeJson.of(sc, new Random(0));
             assertFalse(((List<?>) json.get("ops")).isEmpty());
             assertTrue(((List<?>) json.get("flow")).isEmpty());

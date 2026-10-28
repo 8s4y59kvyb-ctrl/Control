@@ -1,13 +1,18 @@
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
 /**
- * График темы 5 на холсте схемы 600×300: напряжение на катушке последовательного контура
- * в зависимости от частоты, UL(f) = U·XL / √(R² + (XL − XC)²). Пунктир — резонансная частота f0
- * и напряжение источника U, точка — частота задания. Показывается вместо схемы после задания.
+ * График темы 5 на холсте схемы 600×300, показывается вместо схемы после задания.
+ * Последовательный контур: напряжение на катушке UL(f) = U·XL / √(R² + (XL − XC)²), пунктир — напряжение U.
+ * Параллельный (parallel): ток источника I(f) в тех же единицах, что в ответе (мА или А), — наименьший
+ * при резонансе, пунктир — I0 = U/R;
+ * у краёв ток растёт неограниченно, поэтому кривая обрезается по верху графика.
+ * Вертикальный пунктир — резонансная частота f0, точка — частота задания.
  */
-record ResonanceChart(int r, int l, int c, int u, int f) implements Scheme {
+record ResonanceChart(int r, int l, int c, int u, int f, boolean parallel) implements Scheme {
 
     private static final double LEFT = 80, RIGHT = 560;        // ось частот
     private static final double Y0 = 250, YTOP = 45;           // ось напряжений
@@ -19,8 +24,13 @@ record ResonanceChart(int r, int l, int c, int u, int f) implements Scheme {
         double f0 = ResonanceTasks.resonance(l, c);
         double fStep = niceStep(Math.max(2 * f0, 1.1 * f) / 5);
         double fMax = fStep * Math.ceil(Math.max(2 * f0, 1.1 * f) / fStep);
-        double peak = 0;
-        for (int i = 1; i <= CURVE_STEPS; i++) peak = Math.max(peak, voltage(fMax * i / CURVE_STEPS));
+        double ref = parallel ? scale() * u / r : u;               // пунктир: I0 = U/R или U
+        double peak = Math.max(ref, value(f));
+        if (parallel) {
+            peak = Math.max(peak, value(fMax));                    // слева и справа ток только растёт
+        } else {
+            for (int i = 1; i <= CURVE_STEPS; i++) peak = Math.max(peak, value(fMax * i / CURVE_STEPS));
+        }
         double uStep = niceStep(peak * 1.1 / 5);
         double uMax = uStep * Math.ceil(peak * 1.1 / uStep);
 
@@ -32,7 +42,7 @@ record ResonanceChart(int r, int l, int c, int u, int f) implements Scheme {
             g.setStroke(GRID);
             g.strokeLine(LEFT, y, RIGHT, y);
             g.setFill(LABEL);
-            String s = Grading.format(v);
+            String s = tick(v);
             g.fillText(s, LEFT - 8 - 6.5 * s.length(), y + 4);
         }
         for (double x0 = fStep; x0 <= fMax + 1e-9; x0 += fStep) {
@@ -40,17 +50,17 @@ record ResonanceChart(int r, int l, int c, int u, int f) implements Scheme {
             g.setStroke(GRID);
             g.strokeLine(x, YTOP, x, Y0);
             g.setFill(LABEL);
-            String s = Grading.format(x0);
+            String s = tick(x0);
             g.fillText(s, x - 3.3 * s.length(), Y0 + 16);
         }
         g.fillText("0", LEFT - 14, Y0 + 4);
 
-        // пунктиры: резонансная частота и напряжение источника
+        // пунктиры: резонансная частота и напряжение источника (ток при резонансе)
         g.setLineWidth(1.5);
         g.setStroke(PLUS);
         dashed(g, px(f0, fMax), Y0, px(f0, fMax), YTOP - 5);
         g.setStroke(LABEL);
-        dashed(g, LEFT, py(u, uMax), RIGHT, py(u, uMax));
+        dashed(g, LEFT, py(ref, uMax), RIGHT, py(ref, uMax));
 
         // оси со стрелками
         Scheme.arrow(g, LEFT, Y0, RIGHT + 25, Y0, WIRE);
@@ -58,39 +68,57 @@ record ResonanceChart(int r, int l, int c, int u, int f) implements Scheme {
         g.setBoldFont(14);
         g.setFill(LABEL);
         g.fillText("f, Гц", RIGHT - 10, Y0 + 36);
-        g.fillText("UL, В", LEFT + 8, YTOP - 22);
-        g.fillText("U", RIGHT + 6, py(u, uMax) + 5);
+        g.fillText(parallel ? "I, " + unit() : "UL, В", LEFT + 8, YTOP - 22);
+        g.fillText(parallel ? "I0" : "U", RIGHT + 6, py(ref, uMax) + 5);
         g.setFill(PLUS);
         g.fillText("f0 = " + Grading.format(Math.round(f0)) + " Гц", px(f0, fMax) + 6, YTOP + 6);
 
         // кривая
         g.setStroke(BLUE);
         g.setLineWidth(2.5);
-        double prevX = LEFT, prevY = Y0;
+        double prevX = LEFT, prevY = parallel ? Double.NaN : Y0;  // у параллельного при f → 0 ток бесконечен
         for (int i = 1; i <= CURVE_STEPS; i++) {
-            double fi = fMax * i / CURVE_STEPS;
-            double x = px(fi, fMax), y = py(voltage(fi), uMax);
-            g.strokeLine(prevX, prevY, x, y);
+            double fi = fMax * i / CURVE_STEPS, v = value(fi);
+            double x = px(fi, fMax), y = v <= uMax ? py(v, uMax) : Double.NaN;      // выше графика — не рисуем
+            if (!Double.isNaN(prevY) && !Double.isNaN(y)) g.strokeLine(prevX, prevY, x, y);
             prevX = x;
             prevY = y;
         }
 
         // точка задания
-        double x = px(f, fMax), y = py(voltage(f), uMax);
+        double x = px(f, fMax), y = py(value(f), uMax);
         g.setFill(PLUS);
         g.fillOval(x - 5, y - 5, 10, 10);
         g.setFill(BLUE);
         g.setBoldFont(13);
-        String s = "UL = " + String.format(Locale.US, "%.2f", voltage(f)).replace('.', ',') + " В";
+        String s = (parallel ? "I = " : "UL = ") + String.format(Locale.US, "%.2f", value(f)).replace('.', ',')
+                + (parallel ? " " + unit() : " В");
         g.fillText(s, f < f0 ? x - 12 - 7 * s.length() : x + 12, y + 4);
 
         g.setBoldFont(15);
-        g.fillText("Резонанс: UL наибольшее вблизи f0, UL ≈ Q·U", LEFT + 70, 22);
+        g.fillText(parallel ? "Резонанс токов: I наименьший при f0, I0 = U / R"
+                : "Резонанс: UL наибольшее вблизи f0, UL ≈ Q·U", LEFT + 70, 22);
         g.setLineWidth(2.2);
     }
 
-    private double voltage(double freq) {
-        return ResonanceTasks.inductorVoltage(u, r, l, c, freq);
+    /** UL, В — или ток источника у параллельного контура (в единицах {@link #unit}). */
+    private double value(double freq) {
+        return parallel ? scale() * ResonanceTasks.sourceCurrent(u, r, l, c, freq)
+                        : ResonanceTasks.inductorVoltage(u, r, l, c, freq);
+    }
+
+    /** Единицы тока — как в ответе задания: по току на частоте задания. */
+    private String unit() {
+        return ResonanceTasks.milliamps(u, r, l, c, f) ? "мА" : "А";
+    }
+
+    private double scale() {
+        return ResonanceTasks.milliamps(u, r, l, c, f) ? 1000 : 1;
+    }
+
+    /** Подпись деления: «250», «2,5», «0,25» — без лишних нулей (у тока бывают доли миллиампера). */
+    static String tick(double v) {
+        return BigDecimal.valueOf(v).round(new MathContext(6)).stripTrailingZeros().toPlainString().replace('.', ',');
     }
 
     private static void dashed(Painter g, double x1, double y1, double x2, double y2) {

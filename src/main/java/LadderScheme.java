@@ -8,9 +8,19 @@ import java.util.Random;
  * findZ — тема 2: ищем эквивалент цепи, значение E, токи и узлы a, b не показываем.
  * element — что стоит на месте R1…R4: резисторы, конденсаторы (C1…C4) или катушки (L1…L4);
  * r1…r4 — их номиналы в Ом, мкФ или мГн.
+ * i2, u1 — обратная задача темы 1: показания приборов на схеме, а R1 и E неизвестны («?»); иначе NaN.
  */
 record LadderScheme(double e, double r1, double r2, double r3, double r4,
-                    boolean withR4, boolean findZ, Element element) implements Scheme {
+                    boolean withR4, boolean findZ, Element element, double i2, double u1) implements Scheme {
+
+    /** Схема прямой задачи: все номиналы известны. */
+    LadderScheme(double e, double r1, double r2, double r3, double r4, boolean withR4, boolean findZ, Element element) {
+        this(e, r1, r2, r3, r4, withR4, findZ, element, Double.NaN, Double.NaN);
+    }
+
+    boolean inverse() {
+        return !Double.isNaN(i2);
+    }
 
     private static final double XS = 80;     // источник
     private static final double XA = 285;    // ветвь R2
@@ -85,7 +95,7 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
         String n = element.letter, u = " " + element.unit;
         g.setFill(LABEL);
         g.setBoldFont(15);
-        g.fillText(n + "1 = " + (int) r1 + u, 142, TOP - 28);
+        g.fillText(n + "1 = " + (inverse() ? "?" : (int) r1 + u), 142, TOP - 28);
         g.fillText(n + "2", XA + 22, 155);
         g.fillText((int) r2 + u, XA + 22, 173);
         g.fillText(n + "3", XB + 22, 155);
@@ -93,7 +103,7 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
         if (findZ) {
             g.fillText("E", 52, 200);
         } else {
-            g.fillText("E = " + (int) e + " В", 6, 200);
+            g.fillText("E = " + (inverse() ? "?" : (int) e + " В"), 6, 200);
         }
         if (withR4) {
             g.fillText(n + "4", cx + 15, cy - 38);
@@ -105,9 +115,10 @@ record LadderScheme(double e, double r1, double r2, double r3, double r4,
             g.fillText(element.total + " = ?", 110, 160);
         } else {
             g.fillText("I1", 105, TOP - 32);
-            g.fillText("I2", XA + 19, 228);
+            g.fillText(inverse() ? "I2 = " + LadderTasks.number(i2) + " А" : "I2", XA + 19, 228);
             g.fillText("I3", XB + 19, 228);
             if (withR4) g.fillText("I4", i4x, i4y);
+            if (inverse()) g.fillText("U1 = " + LadderTasks.number(u1) + " В", 140, TOP + 36);   // под R1
             g.setFill(LABEL);                                   // узлы параллельного участка
             g.fillText("a", XA - 16, TOP - 8);
             g.fillText("b", XA - 16, BOTTOM + 20);

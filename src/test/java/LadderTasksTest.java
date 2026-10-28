@@ -1,6 +1,7 @@
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -168,5 +169,46 @@ class LadderTasksTest {
     private static void assertInRange(double v, int min, int max) {
         assertTrue(v >= min && v <= max, v + " вне диапазона " + min + "…" + max);
         assertEquals(Math.rint(v), v, "номинал должен быть целым");
+    }
+
+    @RepeatedTest(50)
+    void ohmSecondTaskIsInverse() {
+        for (Level level : Level.values()) {
+            TaskGenerator gen = Theme.OHM.newGenerator();
+            Random rnd = new Random();
+            assertFalse(gen.next(level, rnd).kind().startsWith("обратная"));   // первое — прямая задача
+            Task task = gen.next(level, rnd);
+            LadderScheme s = (LadderScheme) task.scheme();
+            assertTrue(s.inverse());
+            assertEquals("обратная задача, " + level.title.toLowerCase() + " уровень", task.kind());
+            assertFalse(gen.next(level, rnd).kind().startsWith("обратная"));   // дальше снова прямая
+
+            double uab = task.answers().get(0).value(), i1 = task.answers().get(1).value();
+            double r1 = task.answers().get(2).value(), e = task.answers().get(3).value();
+            assertEquals(List.of("Uab", "I1", "R1", "E"), task.answers().stream().map(Answer::symbol).toList());
+            // ответы следуют из показаний приборов в условии
+            assertEquals(s.i2() * s.r2(), uab, EPS);
+            assertEquals(uab / s.r2() + uab / s.r3() + (s.withR4() ? uab / s.r4() : 0), i1, EPS);
+            assertEquals(s.u1() / i1, r1, EPS);
+            assertEquals(s.u1() + uab, e, EPS);
+            assertTrue(s.i2() >= 0.1, "показание амперметра не меньше 0,1 А");
+            assertTrue(task.text().contains("I2 = " + LadderTasks.number(s.i2()) + " А"), task.text());
+            assertTrue(task.text().contains("U1 = " + LadderTasks.number(s.u1()) + " В"), task.text());
+            assertFalse(task.text().contains("R1 ="), "R1 неизвестно");
+            if (level == Level.EASY) {                                  // «ровные» числа: ответ совпадает со схемой
+                assertEquals(s.r1(), r1, 1e-6);
+                assertEquals(s.e(), e, 1e-6);
+            }
+        }
+    }
+
+    @Test
+    void inverseSchemeHidesR1AndE() {
+        TaskGenerator gen = Theme.OHM.newGenerator();
+        Random rnd = new Random(5);
+        gen.next(Level.HARD, rnd);
+        String json = ServerSchemeJson.of(gen.next(Level.HARD, rnd).scheme(), new Random(0)).toString();
+        assertTrue(json.contains("R1 = ?") && json.contains("E = ?"), json);
+        assertTrue(json.contains("I2 = ") && json.contains("U1 = "), json);
     }
 }

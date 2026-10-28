@@ -67,7 +67,7 @@ class GradingTest {
     @Test
     void resonanceThemeIsReady() {
         assertTrue(Theme.RESONANCE.ready());
-        assertEquals("5. Переменный ток. Последовательный колебательный контур", Theme.RESONANCE.toString());
+        assertEquals("5. Переменный ток. Резонанс напряжений и токов", Theme.RESONANCE.toString());
         assertEquals(2, Theme.RESONANCE.tasks);
         assertTrue(Theme.RESONANCE.hasLevels);
         assertEquals(15 * 60, Theme.RESONANCE.timeLimitSec(Level.EASY));
@@ -76,10 +76,11 @@ class GradingTest {
 
     @Test
     void themeDescriptions() {
-        assertTrue(Theme.OHM.description().endsWith("На задание — 10 минут на лёгком уровне, 15 минут на сложном."));
+        assertTrue(Theme.OHM.description().endsWith("На каждое задание — 10 минут на лёгком уровне, 15 минут на сложном."));
+        assertTrue(Theme.OHM.description().startsWith("Два задания: прямая и обратная задачи"));
         assertTrue(Theme.EQUIVALENT.description().endsWith("На каждое задание — 7 минут."));
         assertTrue(Theme.DIVIDERS.description().endsWith("На каждое задание — 5 минут."));
-        assertTrue(Theme.RESONANCE.description().startsWith("Два задания: в последовательном контуре"));
+        assertTrue(Theme.RESONANCE.description().startsWith("Два задания: последовательный и параллельный контур"));
     }
 
     @Test
@@ -88,7 +89,7 @@ class GradingTest {
         assertEquals(15 * 60, Theme.OHM.timeLimitSec(Level.HARD));  // сложный уровень темы 1 — 15 минут
         assertEquals("10 минут", Theme.OHM.minutesText(Level.EASY));
         assertEquals("15 минут", Theme.OHM.minutesText(Level.HARD));
-        assertEquals(1, Theme.OHM.tasks);                   // в теме 1 одно задание
+        assertEquals(2, Theme.OHM.tasks);                   // в теме 1 прямая и обратная задачи
         assertEquals(2, Theme.EQUIVALENT.tasks);
         assertEquals(2, Theme.DIVIDERS.tasks);
         assertEquals(7 * 60, Theme.EQUIVALENT.timeLimitSec(Level.EASY));
@@ -110,7 +111,7 @@ class GradingTest {
     @Test
     void descriptionFollowsRules() {
         String d = Theme.OHM.description(new ThemeRules(3 * 60, 4 * 60, 3));
-        assertTrue(d.startsWith("Три задания: по схеме"), d);
+        assertTrue(d.startsWith("Три задания: прямая и обратная"), d);
         assertTrue(d.endsWith("На каждое задание — 3 минуты на лёгком уровне, 4 минуты на сложном."), d);
         assertTrue(Theme.DIVIDERS.description(new ThemeRules(60, 60, 1)).endsWith("На задание — 1 минута."));
     }
