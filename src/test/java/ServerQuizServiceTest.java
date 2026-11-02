@@ -73,40 +73,45 @@ class ServerQuizServiceTest {
     }
 
     @Test
-    void hardLevelGradesByAttemptAndShowsHintOnWrongAnswer() {
+    void hardLevelHasOneAttempt() {
         Map<String, Object> st = start(Theme.OHM, Level.HARD);
         String id = (String) st.get("sessionId");
-        assertEquals(3, st.get("attemptsMax"));
+        assertEquals(1, st.get("attemptsMax"));
         assertEquals(15 * 60, st.get("timeLimitSec"));                 // сложный уровень темы 1 — 15 минут
         assertEquals(15L * 60, ((Number) st.get("secondsLeft")).longValue());
-        List<String> right = ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 0);
 
-        st = quiz.answer(id, ServerTestSupport.wrong(right));
-        assertEquals("task", st.get("status"));
-        assertEquals(1, st.get("attempt"));
-        assertEquals("bad", st.get("messageKind"));
-        assertFalse(((String) st.get("message")).contains("Правильный ответ"));   // ответ до конца задания не раскрывается
-
-        st = quiz.answer(id, right);
+        st = quiz.answer(id, ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 0));
         assertEquals("task_done", st.get("status"));
-        assertEquals(4, st.get("taskGrade"));                 // верно со 2-й попытки
-        assertTrue(((String) st.get("message")).contains("с попытки 2"));
+        assertEquals(5, st.get("taskGrade"));
+        assertEquals(true, st.get("taskSolved"));
     }
 
     @Test
-    void failedTaskMakesFinalGradeTwo() {
+    void wrongAnswerSilentlyGoesToNextTaskWithMinimumGrade() {
         Map<String, Object> st = start(Theme.EQUIVALENT, Level.HARD);   // нужны два задания
         String id = (String) st.get("sessionId");
-        List<String> bad = ServerTestSupport.wrong(ServerTestSupport.answers(Theme.EQUIVALENT, Level.HARD, SEED, 0));
-        for (int i = 0; i < 3; i++) st = quiz.answer(id, bad);
-        assertEquals(2, st.get("taskGrade"));
-        assertTrue(((String) st.get("message")).contains("Правильный ответ"));   // теперь можно показать
-        quiz.next(id);
+        st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.EQUIVALENT, Level.HARD, SEED, 0)));
+        assertEquals("task", st.get("status"));                // сразу второе задание
+        assertEquals(2, st.get("taskNumber"));
+        assertNull(st.get("message"));                         // ошибку не показываем
         st = quiz.answer(id, ServerTestSupport.answers(Theme.EQUIVALENT, Level.HARD, SEED, 1));
         assertEquals(5, st.get("taskGrade"));
         st = quiz.next(id);
-        assertEquals("2", map(st.get("result")).get("finalGrade"));   // одна двойка — итог 2, а не среднее
-        assertFalse((Boolean) map(st.get("result")).get("passed"));
+        assertEquals("4", map(st.get("result")).get("finalGrade"));   // среднее из 3 и 5, двоек нет
+        assertTrue((Boolean) map(st.get("result")).get("passed"));
+    }
+
+    @Test
+    void wrongAnswerOnLastTaskFinishesTest() {
+        Map<String, Object> st = start(Theme.EQUIVALENT, Level.EASY);
+        String id = (String) st.get("sessionId");
+        for (int n = 0; n < 2; n++) {
+            st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.EQUIVALENT, Level.EASY, SEED, n)));
+        }
+        assertEquals("finished", st.get("status"));
+        assertNull(st.get("message"));
+        assertEquals("3", map(st.get("result")).get("finalGrade"));
+        assertEquals(1, repo.count(ServerRepository.Filter.NONE));
     }
 
     @Test
@@ -122,21 +127,22 @@ class ServerQuizServiceTest {
     }
 
     @Test
-    void twoAnswerThemeAcceptsCommaDecimalAndCountsPartial() {
-        Map<String, Object> st = start(Theme.DIVIDERS, null);          // уровня нет, всегда 3 попытки
+    void twoAnswerThemeAcceptsCommaDecimalAndNeedsBothValues() {
+        Map<String, Object> st = start(Theme.DIVIDERS, null);          // уровня нет
         String id = (String) st.get("sessionId");
-        assertEquals(3, st.get("attemptsMax"));
+        assertEquals(1, st.get("attemptsMax"));
         assertNull(st.get("level"));
         List<String> right = ServerTestSupport.answers(Theme.DIVIDERS, null, SEED, 0);
-        st = quiz.answer(id, List.of(right.get(0), "0"));
-        assertTrue(((String) st.get("message")).contains("верно введено 1 из 2"));
-        st = quiz.answer(id, right.stream().map(v -> v.replace('.', ',')).toList());
+        st = quiz.answer(id, List.of(right.get(0), "0"));              // одно значение неверно — задание не решено
+        assertEquals(2, st.get("taskNumber"));
+        st = quiz.answer(id, ServerTestSupport.answers(Theme.DIVIDERS, null, SEED, 1).stream()
+                .map(v -> v.replace('.', ',')).toList());
         assertEquals("task_done", st.get("status"));
-        assertEquals(4, st.get("taskGrade"));
+        assertEquals(5, st.get("taskGrade"));
     }
 
     @Test
-    void timeoutGivesTwoAndLateAnswerIsRejected() {
+    void timeoutGivesMinimumAndLateAnswerIsRejected() {
         Map<String, Object> st = start(Theme.OHM, Level.EASY);
         String id = (String) st.get("sessionId");
         assertEquals((long) Theme.OHM.timeLimitSec(Level.EASY), ((Number) st.get("secondsLeft")).longValue());
@@ -146,8 +152,8 @@ class ServerQuizServiceTest {
 
         st = quiz.answer(id, ServerTestSupport.answers(Theme.OHM, Level.EASY, SEED, 0));   // верный, но поздно
         assertEquals("task_done", st.get("status"));
-        assertEquals(2, st.get("taskGrade"));
-        assertTrue(((String) st.get("message")).startsWith("Время вышло"));
+        assertEquals(3, st.get("taskGrade"));
+        assertNull(st.get("message"));
     }
 
     @Test
@@ -183,31 +189,25 @@ class ServerQuizServiceTest {
 
         st = quiz.next(id);                                                      // второе задание — неверно
         st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.AC_REACTANCE, Level.EASY, SEED, 1)));
-        assertEquals("task_done", st.get("status"));
-        assertEquals(2, st.get("taskGrade"));
-        assertFalse(map(st.get("task")).containsKey("chart"));
-        assertFalse(st.containsKey("chartSec"));
+        assertEquals("finished", st.get("status"));                             // без графика сразу итог
+        assertEquals("4", map(st.get("result")).get("finalGrade"));
     }
 
     @Test
-    void resonanceChartShownAfterAnyOutcome() {
+    void resonanceChartShownOnlyAfterCorrectAnswer() {
         Map<String, Object> st = start(Theme.RESONANCE, Level.EASY);
         String id = (String) st.get("sessionId");
         assertEquals(4, ((List<?>) map(st.get("task")).get("fields")).size());  // f0, ρ, Q, UL
         assertFalse(map(st.get("task")).containsKey("chart"));
 
         st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.RESONANCE, Level.EASY, SEED, 0)));
-        assertEquals("task_done", st.get("status"));
-        assertEquals(2, st.get("taskGrade"));
-        assertFalse(((List<?>) map(map(st.get("task")).get("chart")).get("ops")).isEmpty());   // и после неверного
-        assertEquals(5, ((Number) st.get("chartSec")).intValue());
-
-        st = quiz.next(id);                                                      // второе задание — время вышло
+        assertEquals("task", st.get("status"));                                 // сразу второе задание
         assertFalse(map(st.get("task")).containsKey("chart"));
-        clock.advanceSeconds(Theme.RESONANCE.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
-        st = quiz.state(id);
+
+        st = quiz.answer(id, ServerTestSupport.answers(Theme.RESONANCE, Level.EASY, SEED, 1));
         assertEquals("task_done", st.get("status"));
-        assertTrue(map(st.get("task")).containsKey("chart"));
+        assertFalse(((List<?>) map(map(st.get("task")).get("chart")).get("ops")).isEmpty());
+        assertEquals(5, ((Number) st.get("chartSec")).intValue());
     }
 
     @Test
@@ -217,7 +217,8 @@ class ServerQuizServiceTest {
         Map<String, Object> st = start(Theme.EQUIVALENT, Level.EASY);
         String id = (String) st.get("sessionId");
         assertEquals(409, assertThrows(ServerError.class, () -> quiz.next(id)).status);   // задание ещё не закончено
-        quiz.answer(id, List.of("1"));                                                   // неверно: одна попытка
+        quiz.answer(id, List.of("1"));                                                   // неверно: сразу 2-е задание
+        quiz.answer(id, List.of("1"));                                                   // и итог
         assertEquals(409, assertThrows(ServerError.class, () -> quiz.answer(id, List.of("1"))).status);
         assertEquals(400, assertThrows(ServerError.class, () -> quiz.start("", "Иванов", Theme.OHM, Level.EASY)).status);
         assertEquals(400, assertThrows(ServerError.class, () -> quiz.start("КМ-21", "Иванов", Theme.OHM, null)).status);
@@ -252,8 +253,7 @@ class ServerQuizServiceTest {
                             Theme.EQUIVALENT, Level.EASY);
                     String id = (String) st.get("sessionId");
                     for (int t = 0; t < Theme.EQUIVALENT.tasks; t++) {
-                        svc.answer(id, List.of("0"));                   // неверно -> 2, одна попытка
-                        st = svc.next(id);
+                        st = svc.answer(id, List.of("0"));              // неверно -> 3 и сразу дальше
                     }
                     return (String) st.get("status");
                 }));

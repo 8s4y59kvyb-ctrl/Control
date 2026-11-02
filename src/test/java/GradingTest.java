@@ -42,7 +42,7 @@ class GradingTest {
         assertEquals(4, Level.HARD.gradeForAttempt(2));
         assertEquals(3, Level.HARD.gradeForAttempt(3));
         assertEquals(1, Level.EASY.attempts);
-        assertEquals(3, Level.HARD.attempts);
+        assertEquals(1, Level.HARD.attempts);
     }
 
     @Test

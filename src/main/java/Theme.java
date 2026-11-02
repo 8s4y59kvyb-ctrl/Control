@@ -24,7 +24,7 @@ enum Theme {
     },
     DIVIDERS("Делители тока и напряжения", 5 * 60, 5 * 60, 2, false,
             "делитель тока и делитель напряжения по очереди, в каждом найти два значения. "
-                    + "Выбора сложности нет: три попытки.") {
+                    + "Выбора сложности нет.") {
         @Override
         TaskGenerator newGenerator(ThemeRules rules) {
             return new DividerTasks(rules::minutesText);
@@ -84,7 +84,7 @@ enum Theme {
         return true;
     }
 
-    /** Уровень, по которому решаются задания: в теме без выбора сложности — всегда три попытки. */
+    /** Уровень, по которому решаются задания: в теме без выбора сложности — всегда сложный. */
     Level effectiveLevel(Level chosen) {
         return hasLevels ? chosen : Level.HARD;
     }

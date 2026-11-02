@@ -166,7 +166,7 @@ function showChart(st) {
   updateTimer();                               // время стоит: задание завершено
   $('check-btn').hidden = true;
   $('next-btn').hidden = true;
-  setFeedback((st.taskGrade >= 3 ? 'Верно! ' : '') + 'График зависимости от частоты. Оценка появится через несколько секунд…', null);
+  setFeedback((st.taskSolved ? 'Верно! ' : '') + 'График зависимости от частоты. Оценка появится через несколько секунд…', null);
   const g = $('grade');
   g.textContent = '—';
   g.className = 'grade-value';
@@ -213,7 +213,7 @@ function drawDots(st, done) {
     const d = document.createElement('span');
     d.className = 'dot';
     if (i < st.attempt) {
-      const good = done && st.taskGrade >= 3 && i === st.attempt - 1;
+      const good = done && st.taskSolved && i === st.attempt - 1;
       d.classList.add(good ? 'dot-ok' : 'dot-used');
     }
     box.appendChild(d);

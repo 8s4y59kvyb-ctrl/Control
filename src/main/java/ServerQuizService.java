@@ -47,7 +47,7 @@ final class ServerQuizService {
         Map<String, Object> chartJson;    // график после задания (темы 4 и 5), иначе null
         int taskNumber, attempt;
         Instant deadline;
-        boolean taskDone, finished;
+        boolean taskDone, taskSolved, finished;
         int taskGrade;
         String message, messageKind;
         double finalGrade;
@@ -153,17 +153,12 @@ final class ServerQuizService {
             ses.attempt++;
             int right = ses.task.countCorrect(nums);
             if (right == nums.length) {                       // попытка засчитывается, если верны все значения
-                finishTask(ses, ses.taskLevel.gradeForAttempt(ses.attempt),
+                finishTask(ses, ses.taskLevel.gradeForAttempt(ses.attempt), true,
                         "Верно! " + ses.task.correctText() + ". Задание решено с попытки " + ses.attempt + ".");
-            } else if (ses.attempt >= ses.taskLevel.attempts) {
-                String prefix = ses.taskLevel == Level.EASY ? "Неверно. В лёгком режиме одна попытка. "
-                                                            : "Попытки закончились. ";
-                finishTask(ses, 2, prefix + "Правильный ответ: " + ses.task.correctText() + ".");
-            } else {
-                ses.message = nums.length > 1
-                        ? "Неверно: верно введено " + right + " из " + nums.length + " значений. " + ses.task.hint()
-                        : "Неверно. " + ses.task.hint();
-                ses.messageKind = "bad";
+            } else {                                          // попытка одна (Level.attempts)
+                // ошибку курсанту не показываем: сразу следующее задание (или итог)
+                finishTask(ses, Grading.MIN, false, null);
+                advance(ses);
             }
             return view(ses);
         }
@@ -176,17 +171,7 @@ final class ServerQuizService {
             if (ses.finished) return view(ses);
             expireIfNeeded(ses);
             if (!ses.taskDone) throw ServerError.conflict("Сначала завершите текущее задание.");
-            if (ses.grades.size() < ses.rules.tasks()) {
-                startTask(ses);
-            } else {
-                ses.finalGrade = Grading.finalGrade(ses.grades);
-                ses.resultId = repo.finishSession(ses.id, ses.cadetId, ses.group, ses.surname, ses.theme, ses.level,
-                        ses.finalGrade, ses.grades, LocalDateTime.now(clock));
-                ses.finished = true;
-                ses.task = null;
-                ses.schemeJson = null;
-                ses.chartJson = null;
-            }
+            advance(ses);
             return view(ses);
         }
     }
@@ -214,6 +199,22 @@ final class ServerQuizService {
         }
     }
 
+    /** После завершённого задания: следующее задание либо (после последнего) итог теста с записью в базу. */
+    private void advance(Session ses) {
+        if (ses.grades.size() < ses.rules.tasks()) {
+            startTask(ses);
+        } else {
+            ses.finalGrade = Grading.finalGrade(ses.grades);
+            ses.resultId = repo.finishSession(ses.id, ses.cadetId, ses.group, ses.surname, ses.theme, ses.level,
+                    ses.finalGrade, ses.grades, LocalDateTime.now(clock));
+            ses.finished = true;
+            ses.task = null;
+            ses.schemeJson = null;
+            ses.chartJson = null;
+            ses.message = null;
+        }
+    }
+
     private void startTask(Session ses) {
         ses.taskNumber++;
         ses.attempt = 0;
@@ -227,24 +228,25 @@ final class ServerQuizService {
         touch(ses);
     }
 
-    private void finishTask(Session ses, int grade, String message) {
+    private void finishTask(Session ses, int grade, boolean solved, String message) {
         ses.taskDone = true;
         ses.taskGrade = grade;
+        ses.taskSolved = solved;
         ses.message = message;
-        ses.messageKind = grade >= 3 ? "ok" : "bad";
+        ses.messageKind = solved ? "ok" : "warn";
         ses.grades.add(grade);
         ses.kinds.add(ses.task.kind());
-        // оценка 3 и выше — задание решено; график не тратит ses.rnd: порядок случайных чисел не меняется
-        if (ses.task.showsChart(grade >= 3)) ses.chartJson = ServerSchemeJson.of(ses.task.chart(), new Random(0));
+        // график не тратит ses.rnd: порядок случайных чисел не меняется
+        if (solved && ses.task.showsChart(true)) ses.chartJson = ServerSchemeJson.of(ses.task.chart(), new Random(0));
         touch(ses);
     }
 
-    /** Если время задания вышло, ставит 2. Возвращает true, когда задание закрыто именно этим вызовом. */
+    /** Если время задания вышло, ставит {@link Grading#MIN}. Возвращает true, когда задание закрыто именно этим вызовом. */
     private boolean expireIfNeeded(Session ses) {
         touch(ses);
         if (ses.finished || ses.taskDone) return false;
         if (!Instant.now(clock).isAfter(ses.deadline.plusSeconds(GRACE_SEC))) return false;
-        finishTask(ses, 2, "Время вышло. Правильный ответ: " + ses.task.correctText() + ".");
+        finishTask(ses, Grading.MIN, false, null);           // без сообщения: только оценка
         return true;
     }
 
@@ -307,6 +309,7 @@ final class ServerQuizService {
         m.put("secondsLeft", ses.taskDone ? 0 : Math.max(0, (left + 999) / 1000));
         if (ses.taskDone) {
             m.put("taskGrade", ses.taskGrade);
+            m.put("taskSolved", ses.taskSolved);
             m.put("lastTask", ses.taskNumber >= ses.rules.tasks());
         }
 
