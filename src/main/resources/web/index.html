@@ -57,8 +57,8 @@
         <div class="buttons">
           <button id="check-btn" class="primary-btn" type="submit">Проверить</button>
           <button id="next-btn" class="secondary-btn" type="button" hidden></button>
-          <!-- протокол calculator: открывает встроенный калькулятор Windows 10/11 (браузер сначала спросит разрешение) -->
-          <a id="calc-btn" class="secondary-btn calc-btn" href="calculator:" title="Открыть калькулятор Windows">Калькулятор</a>
+          <!-- калькулятор на самой странице (calc.js): работает и там, где нет калькулятора Windows 10/11 -->
+          <button id="calc-btn" class="secondary-btn calc-btn" type="button" title="Открыть калькулятор">Калькулятор</button>
         </div>
       </form>
       <p id="feedback" class="feedback" role="status"></p>
@@ -93,7 +93,23 @@
   </section>
 
 </main>
+
+<!-- калькулятор: плавающая панель, открывается кнопкой «Калькулятор» -->
+<div id="calc" class="calc" role="dialog" aria-label="Калькулятор" tabindex="-1" hidden>
+  <div class="calc-head">
+    <span>Калькулятор</span>
+    <button id="calc-close" class="calc-close" type="button" title="Закрыть">×</button>
+  </div>
+  <div class="calc-screen">
+    <div id="calc-expr" class="calc-expr"></div>
+    <div id="calc-out" class="calc-out">0</div>
+  </div>
+  <div id="calc-keys" class="calc-keys"></div>
+  <button id="calc-insert" class="primary-btn calc-insert" type="button">Вставить в ответ</button>
+</div>
+
 <footer class="footer">Авторы: Иванкин А. В., Алимов А. П., Шапкарин А. М., Гукосян Ш. Р., Дудиев Г. С., АДЪЮНКТ</footer>
 <script src="app.js"></script>
+<script src="calc.js"></script>
 </body>
 </html>

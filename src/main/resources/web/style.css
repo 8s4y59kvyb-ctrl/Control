@@ -52,6 +52,32 @@ input[type=text]:focus, select:focus { outline: none; border-color: #2563eb; }
 .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
 .calc-btn { margin-left: auto; }                      /* прижата к правому краю, после «Проверить» */
 
+/* ---------- калькулятор: панель в правом нижнем углу ---------- */
+.calc { position: fixed; right: 16px; bottom: 16px; width: 300px; z-index: 10; background: #0f172a;
+        border-radius: 14px; padding: 12px; box-shadow: 0 8px 28px rgba(15, 23, 42, .35); }
+.calc:focus { outline: none; }
+.calc-head { display: flex; justify-content: space-between; align-items: center; color: #94a3b8;
+        font-size: 13px; margin-bottom: 8px; }
+.calc-close { background: none; border: 0; color: #94a3b8; font-size: 22px; line-height: 1; cursor: pointer;
+        padding: 0 4px; }
+.calc-close:hover { color: #fff; }
+.calc-screen { background: #1e293b; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; text-align: right; }
+.calc-expr { color: #94a3b8; font: 14px Consolas, monospace; min-height: 1.3em; word-break: break-all; }
+.calc-out { color: #fff; font: bold 26px Consolas, monospace; word-break: break-all; }
+.calc-out.calc-err { color: #f87171; }
+.calc-keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.calc-key { background: #334155; color: #fff; font: inherit; font-size: 16px; border: 0; border-radius: 8px;
+        padding: 10px 0; cursor: pointer; }
+.calc-key:hover { background: #475569; }
+.calc-digit { background: #475569; }
+.calc-digit:hover { background: #64748b; }
+.calc-eq { background: #2563eb; font-weight: bold; }
+.calc-eq:hover { background: #1d4ed8; }
+.calc-insert { width: 100%; margin-top: 10px; }
+@media (max-width: 500px) {
+  .calc { left: 8px; right: 8px; bottom: 8px; width: auto; }
+}
+
 .feedback { font-size: 14px; min-height: 1.4em; margin: 10px 0 0; }
 .fb-ok { color: #15803d; font-weight: bold; }
 .fb-bad { color: #b91c1c; font-weight: bold; }
