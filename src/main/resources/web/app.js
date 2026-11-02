@@ -39,14 +39,7 @@ function show(id) {
 // ---------- старт ----------
 async function init() {
   meta = await api('GET', '/api/themes');
-  $('theme').innerHTML = '';
-  for (const t of meta.themes) {
-    const o = document.createElement('option');
-    o.value = t.id;
-    o.textContent = t.title;
-    o.disabled = !t.ready;                      // тема «в разработке»: видна, но не выбирается
-    $('theme').appendChild(o);
-  }
+  buildDisciplines();
   const box = $('levels');
   box.innerHTML = '';
   meta.levels.forEach((l, i) => {
@@ -61,7 +54,7 @@ async function init() {
     box.appendChild(label);
   });
   box.addEventListener('change', syncStartForm);
-  $('theme').addEventListener('change', syncStartForm);
+  $('disciplines').addEventListener('change', syncStartForm);
   syncStartForm();
 
   const saved = sessionStorage.getItem(SESSION_KEY);
@@ -78,8 +71,69 @@ async function init() {
   show('start');
 }
 
+/** Вкладки дисциплин: по нажатию раскрывается список тем (открыта одна вкладка); тема выбирается переключателем. */
+function buildDisciplines() {
+  const box = $('disciplines');
+  box.innerHTML = '';
+  for (const d of meta.disciplines) {
+    const themes = meta.themes.filter(t => t.discipline === d.id);
+    const wrap = document.createElement('div');
+    wrap.className = 'disc';
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'disc-head';
+    head.setAttribute('aria-expanded', 'false');
+    const count = document.createElement('span');
+    count.className = 'disc-count';
+    count.textContent = themes.length ? themeCount(themes.length) : 'в разработке';
+    head.append(d.title, count);
+    const list = document.createElement('div');
+    list.className = 'disc-themes';
+    list.hidden = true;
+    if (!themes.length) {
+      const p = document.createElement('div');
+      p.className = 'muted disc-empty';
+      p.textContent = 'Темы по этой дисциплине пока в разработке.';
+      list.appendChild(p);
+    }
+    for (const t of themes) {
+      const label = document.createElement('label');
+      label.className = 'theme-opt' + (t.ready ? '' : ' theme-off');
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'theme';
+      input.value = t.id;
+      input.disabled = !t.ready;                // тема «в разработке»: видна, но не выбирается
+      label.append(input, t.title);
+      list.appendChild(label);
+    }
+    head.addEventListener('click', () => {
+      const open = list.hidden;
+      for (const w of box.children) {           // открыта только одна дисциплина
+        w.querySelector('.disc-themes').hidden = true;
+        w.querySelector('.disc-head').setAttribute('aria-expanded', 'false');
+      }
+      list.hidden = !open;
+      head.setAttribute('aria-expanded', String(open));
+      if (open) {                               // тема другой дисциплины больше не выбрана
+        for (const r of box.querySelectorAll('input[name=theme]')) if (!list.contains(r)) r.checked = false;
+        syncStartForm();
+      }
+    });
+    wrap.append(head, list);
+    box.appendChild(wrap);
+  }
+}
+
+function themeCount(n) {
+  const m10 = n % 10, m100 = n % 100;
+  const word = m10 === 1 && m100 !== 11 ? 'тема' : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? 'темы' : 'тем';
+  return n + ' ' + word;
+}
+
 function selectedTheme() {
-  return meta.themes.find(t => t.id === $('theme').value);
+  const r = document.querySelector('input[name=theme]:checked');
+  return r ? meta.themes.find(t => t.id === r.value) : null;
 }
 
 function selectedLevel() {
@@ -89,9 +143,10 @@ function selectedLevel() {
 
 /** Описание выбранной темы, выбор сложности (если он есть) и правила выбранного уровня. */
 function syncStartForm() {
-  $('theme-info').textContent = selectedTheme().description;
-  const hasLevels = selectedTheme().hasLevels;
-  $('level-box').hidden = !hasLevels;
+  const theme = selectedTheme();
+  for (const l of document.querySelectorAll('.theme-opt')) l.classList.toggle('on', l.firstChild.checked);
+  $('theme-info').textContent = theme ? theme.description : '';
+  $('level-box').hidden = !theme || !theme.hasLevels;
   for (const l of $('levels').children) l.classList.toggle('on', l.firstChild.checked);
   const lvl = meta.levels.find(l => l.id === selectedLevel());
   $('start-rules').textContent = lvl ? lvl.rules : '';
@@ -111,9 +166,13 @@ $('surname').addEventListener('input', () => {
 $('start-form').addEventListener('submit', async ev => {
   ev.preventDefault();
   $('start-error').textContent = '';
+  const theme = selectedTheme();
+  if (!theme) {
+    $('start-error').textContent = 'Выберите дисциплину и тему.';
+    return;
+  }
   $('start-btn').disabled = true;
   try {
-    const theme = selectedTheme();
     const body = {
       group: $('group').value,
       surname: $('surname').value,
@@ -154,13 +213,19 @@ function render(st) {
     return;
   }
   $('check-btn').hidden = done;
+  $('calc-btn').hidden = !!st.task.options;     // в задании на выбор считать нечего
   $('next-btn').hidden = !done;
   $('next-btn').textContent = st.lastTask ? 'Завершить тестирование' : 'Следующее задание';
 
   setFeedback(st.message || '', st.messageKind);
   const g = $('grade');
-  g.textContent = done ? st.taskGrade : '—';
-  g.className = 'grade-value' + (done ? (st.taskGrade >= 3 ? ' grade-good' : ' grade-bad') : '');
+  const good = st.taskGrade >= 3;
+  // оценка за тест целиком (модуляция): за задание — только «верно / неверно» и счёт верных ответов
+  $('grade-title').textContent = st.wholeTest ? 'Результат задания' : 'Оценка за задание';
+  g.textContent = !done ? '—' : st.wholeTest ? (good ? 'верно' : 'неверно') : st.taskGrade;
+  g.className = 'grade-value' + (st.wholeTest ? ' grade-word' : '') + (done ? (good ? ' grade-good' : ' grade-bad') : '');
+  $('solved').hidden = !st.wholeTest;
+  if (st.wholeTest) $('solved').textContent = 'Верных ответов: ' + st.solved + ' из ' + st.tasksTotal;
 
   drawDots(st, done);
   drawScheme(st.task.scheme);
@@ -195,7 +260,9 @@ function buildFields(st, done) {
   if (box.dataset.key !== key) {
     box.dataset.key = key;
     box.innerHTML = '';
-    for (const f of st.task.fields) {
+    box.className = 'fields' + (st.task.options ? ' choices' : '');
+    if (st.task.options) buildChoices(box, st.task.options);
+    else for (const f of st.task.fields) {
       const wrap = document.createElement('label');
       wrap.className = 'answer';
       const input = document.createElement('input');
@@ -206,9 +273,42 @@ function buildFields(st, done) {
       wrap.append(f.symbol + ' =', input, f.unit);
       box.appendChild(wrap);
     }
-    if (!done) box.querySelector('input').focus();
+    if (!done && !st.task.options) box.querySelector('input').focus();
   }
   for (const i of box.querySelectorAll('input')) i.disabled = done;
+  if (st.task.options) markChoices(box, done ? st.task.correct : 0);
+}
+
+/** Задание на выбор (модуляция): варианты-картинки с номерами, выбор щелчком по картинке. */
+function buildChoices(box, options) {
+  options.forEach((o, i) => {
+    const label = document.createElement('label');
+    label.className = 'choice';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'choice';
+    input.value = String(i + 1);
+    input.setAttribute('aria-label', 'Вариант ' + (i + 1));
+    input.addEventListener('change', () => markChoices(box, 0));
+    const num = document.createElement('span');
+    num.className = 'choice-num';
+    num.textContent = i + 1;
+    const canvas = document.createElement('canvas');
+    label.append(input, num, canvas);
+    box.appendChild(label);
+    drawOps(canvas, o);
+  });
+}
+
+/** Подсветка: выбранный вариант; после задания (correct > 0) — верный зелёным, неверно выбранный красным. */
+function markChoices(box, correct) {
+  for (const label of box.querySelectorAll('.choice')) {
+    const input = label.querySelector('input');
+    const right = correct > 0 && Number(input.value) === correct;
+    label.classList.toggle('on', input.checked && !correct);
+    label.classList.toggle('choice-ok', right);
+    label.classList.toggle('choice-bad', correct > 0 && input.checked && !right);
+  }
 }
 
 function setFeedback(text, kind) {
@@ -259,12 +359,14 @@ $('answer-form').addEventListener('submit', async ev => {
   ev.preventDefault();
   if (!state || state.status !== 'task') return;
   const inputs = [...$('fields').querySelectorAll('input')];
+  const choice = !!state.task.options;         // задание на выбор: одно значение — номер варианта
+  const picked = $('fields').querySelector('input:checked');
   $('check-btn').disabled = true;
   try {
     const st = await api('POST', '/api/sessions/' + encodeURIComponent(state.sessionId) + '/answer',
-      { values: inputs.map(i => i.value) });
+      { values: choice ? [picked ? picked.value : ''] : inputs.map(i => i.value) });
     render(st);
-    if (st.status === 'task') inputs[0].select();
+    if (st.status === 'task' && !choice) inputs[0].select();
   } catch (e) {
     handleError(e);
   } finally {
@@ -301,7 +403,11 @@ function renderResult(st) {
   sessionStorage.removeItem(SESSION_KEY);
   const r = st.result;
   let info = 'Группа: ' + st.group + '\nКурсант: ' + st.surname + '\nТема: ' + st.theme + '\n';
-  for (const t of r.tasks) info += '\nЗадание ' + t.number + ' (' + t.kind + '): оценка ' + t.grade;
+  for (const t of r.tasks) {
+    info += '\nЗадание ' + t.number + ' (' + t.kind + '): '
+      + (st.wholeTest ? (t.grade >= 3 ? 'верно' : 'неверно') : 'оценка ' + t.grade);
+  }
+  if (st.wholeTest) info += '\n\nВерных ответов: ' + st.solved + ' из ' + r.tasks.length;
   $('result-info').textContent = info;
   const g = $('result-grade');
   g.textContent = r.finalGrade;
@@ -327,10 +433,25 @@ function setupCanvas(canvas, w, h) {
   return ctx;
 }
 
-/** Выполняет команды рисования с сервера (см. ServerSchemeJson). */
+/** Схема или график на главном холсте и пути тока для анимации. */
 function drawScheme(s) {
-  const ctx = setupCanvas($('scheme'), s.width, s.height);
+  drawOps($('scheme'), s);
   setupCanvas($('flow'), s.width, s.height);
+  flowPaths = s.flow.map(p => {
+    const cum = [0];
+    for (let i = 1; i < p.points.length; i++) {
+      cum.push(cum[i - 1] + Math.hypot(p.points[i][0] - p.points[i - 1][0], p.points[i][1] - p.points[i - 1][1]));
+    }
+    return { ...p, cum };
+  });
+  $('flow-on').parentElement.hidden = !flowPaths.length;   // в схеме с конденсаторами тока нет
+  flowColor = s.flowColor;
+  flowStart = 0;
+}
+
+/** Выполняет команды рисования с сервера (см. ServerSchemeJson) на холсте canvas. */
+function drawOps(canvas, s) {
+  const ctx = setupCanvas(canvas, s.width, s.height);
   ctx.strokeStyle = ctx.fillStyle = s.wire;
   ctx.lineWidth = s.lineWidth;
   ctx.font = 'bold 15px "Segoe UI", system-ui, sans-serif';
@@ -354,6 +475,11 @@ function drawScheme(s) {
         ctx.closePath();
         ctx.fill();
         break;
+      case 'polyline':
+        ctx.beginPath();
+        a[0].forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+        ctx.stroke();
+        break;
       case 'text': ctx.fillText(a[0], a[1], a[2]); break;
       case 'save': ctx.save(); break;
       case 'restore': ctx.restore(); break;
@@ -361,16 +487,6 @@ function drawScheme(s) {
       case 'rotate': ctx.rotate(a[0] * Math.PI / 180); break;
     }
   }
-  flowPaths = s.flow.map(p => {
-    const cum = [0];
-    for (let i = 1; i < p.points.length; i++) {
-      cum.push(cum[i - 1] + Math.hypot(p.points[i][0] - p.points[i - 1][0], p.points[i][1] - p.points[i - 1][1]));
-    }
-    return { ...p, cum };
-  });
-  $('flow-on').parentElement.hidden = !flowPaths.length;   // в схеме с конденсаторами тока нет
-  flowColor = s.flowColor;
-  flowStart = 0;
 }
 
 function pointAt(p, s) {

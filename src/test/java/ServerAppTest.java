@@ -73,13 +73,23 @@ class ServerAppTest {
         assertEquals("nosniff", index.headers().firstValue("X-Content-Type-Options").orElse(""));
 
         JsonNode meta = json(send("GET", "/api/themes", null, null));
-        assertEquals(5, meta.get("themes").size());
+        assertEquals(6, meta.get("themes").size());
         assertEquals("OHM", meta.get("themes").get(0).get("id").asText());
         assertTrue(meta.get("themes").get(0).get("ready").asBoolean());
         assertTrue(meta.get("themes").get(3).get("ready").asBoolean());      // переменный ток — готов
         assertEquals("RESONANCE", meta.get("themes").get(4).get("id").asText());
         assertTrue(meta.get("themes").get(4).get("description").asText().contains("резонансную частоту"));
         assertEquals(2, meta.get("levels").size());
+        assertEquals(2, meta.get("disciplines").size());                       // вкладки на странице курсанта
+        assertEquals("Электротехника", meta.get("disciplines").get(0).get("title").asText());
+        assertEquals("Радиотехнические цепи и сигналы", meta.get("disciplines").get(1).get("title").asText());
+        for (int i = 0; i < 5; i++) assertEquals("ELECTRICAL", meta.get("themes").get(i).get("discipline").asText());
+        JsonNode mod = meta.get("themes").get(5);
+        assertEquals("MODULATION", mod.get("id").asText());
+        assertEquals("SIGNALS", mod.get("discipline").asText());
+        assertEquals("1. Модуляция", mod.get("title").asText());                // нумерация внутри дисциплины
+        assertTrue(mod.get("description").asText().startsWith("Пять заданий"));
+        assertEquals(60, mod.get("timeLimitSec").asInt());
     }
 
     @Test
@@ -210,7 +220,7 @@ class ServerAppTest {
         HttpResponse<String> bad = send("PUT", "/api/admin/settings",
                 "{\"retakeMin\":5,\"themes\":[{\"id\":\"OHM\",\"easyMin\":0,\"hardMin\":4,\"tasks\":2}]}", "secret");
         assertEquals(400, bad.statusCode());
-        assertTrue(json(bad).get("error").asText().contains("Тема 1"));
+        assertTrue(json(bad).get("error").asText().contains("Тема «Закон Ома"));
         assertEquals(400, send("PUT", "/api/admin/settings", "{\"retakeMin\":\"x\",\"themes\":[]}", "secret").statusCode());
 
         JsonNode reset = json(send("POST", "/api/admin/settings/reset", null, "secret"));

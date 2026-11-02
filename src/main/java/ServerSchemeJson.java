@@ -10,8 +10,6 @@ import java.util.Random;
  */
 final class ServerSchemeJson implements Painter {
 
-    static final int WIDTH = 600, HEIGHT = 300;     // размер холста
-
     private final List<Object> ops = new ArrayList<>();
 
     private void op(Object... args) {
@@ -36,8 +34,8 @@ final class ServerSchemeJson implements Painter {
             flow.add(m);
         }
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("width", WIDTH);
-        out.put("height", HEIGHT);
+        out.put("width", scheme.width());
+        out.put("height", scheme.height());
         out.put("wire", Scheme.WIRE);       // исходные цвет и толщина пера
         out.put("lineWidth", 2.2);
         out.put("flowColor", Scheme.BLUE);
@@ -61,6 +59,17 @@ final class ServerSchemeJson implements Painter {
         List<Object> pts = new ArrayList<>();
         for (int i = 0; i < n; i++) pts.add(List.of(xs[i], ys[i]));
         op("polygon", pts);
+    }
+
+    @Override
+    public void strokePolyline(double[] xs, double[] ys, int n) {
+        List<Object> pts = new ArrayList<>();
+        for (int i = 0; i < n; i++) pts.add(List.of(round(xs[i]), round(ys[i])));   // сотни точек: короче JSON
+        op("polyline", pts);
+    }
+
+    private static double round(double v) {
+        return Math.round(v * 10) / 10.0;
     }
 
     @Override public void fillText(String text, double x, double y) { op("text", text, x, y); }

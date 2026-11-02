@@ -27,6 +27,9 @@ interface Painter {
 
     void fillPolygon(double[] xs, double[] ys, int n);
 
+    /** Ломаная через n точек (кривые сигналов): одна команда вместо n − 1 отрезков. */
+    void strokePolyline(double[] xs, double[] ys, int n);
+
     void fillText(String text, double x, double y);
 
     void save();

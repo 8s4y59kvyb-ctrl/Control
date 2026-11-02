@@ -132,7 +132,14 @@ function renderSettings(s) {
   const L = s.limits;
   const body = $('settings-rows');
   body.innerHTML = '';
+  let discipline = null;
   for (const t of s.themes) {
+    if (t.discipline !== discipline) {         // строка-заголовок дисциплины: темы нумеруются внутри неё
+      discipline = t.discipline;
+      const head = document.createElement('tr');
+      cell(head, discipline, 5).className = 'disc-row';
+      body.appendChild(head);
+    }
     const tr = document.createElement('tr');
     tr.dataset.id = t.id;
     cell(tr, t.title).className = 'theme-name';
@@ -171,6 +178,7 @@ async function loadSettings() {
 function collectSettings() {
   const themes = [];
   for (const tr of $('settings-rows').children) {
+    if (!tr.dataset.id) continue;              // заголовок дисциплины
     const t = { id: tr.dataset.id };
     for (const td of tr.querySelectorAll('td[data-f]')) t[td.dataset.f] = td.querySelector('input').value;
     if (t.easyMin === undefined) t.easyMin = t.hardMin;
@@ -213,7 +221,13 @@ async function enter() {
     $('f-group').length = 1;
     $('f-theme').length = 1;
     for (const g of groups) $('f-group').add(new Option(g, g));
-    for (const t of meta.themes) $('f-theme').add(new Option(t.title, t.id));
+    $('f-theme').querySelectorAll('optgroup').forEach(g => g.remove());
+    for (const d of meta.disciplines) {          // темы по дисциплинам: номера тем повторяются
+      const group = document.createElement('optgroup');
+      group.label = d.title;
+      for (const t of meta.themes.filter(t => t.discipline === d.id)) group.appendChild(new Option(t.title, t.id));
+      if (group.children.length) $('f-theme').appendChild(group);
+    }
   } catch (e) {
     fail(e);
     return;

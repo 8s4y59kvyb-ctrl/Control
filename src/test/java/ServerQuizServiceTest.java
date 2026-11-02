@@ -211,6 +211,57 @@ class ServerQuizServiceTest {
     }
 
     @Test
+    void modulationIsChoiceWithOneAttempt() {
+        Map<String, Object> st = start(Theme.MODULATION, null);
+        String id = (String) st.get("sessionId");
+        assertEquals(5, st.get("tasksTotal"));
+        assertEquals(1, st.get("attemptsMax"));                                 // выбор из пяти — одна попытка
+        assertEquals(60, st.get("timeLimitSec"));
+        Map<String, Object> task = map(st.get("task"));
+        assertEquals(6, ((List<?>) task.get("options")).size());
+        assertEquals(true, st.get("wholeTest"));
+        assertTrue(((String) st.get("rules")).contains("3 верных — 3"));
+        assertFalse(task.containsKey("correct"));                                // до ответа номер не раскрывается
+
+        st = quiz.answer(id, List.of(""));                                       // ничего не выбрано
+        assertEquals(0, st.get("attempt"));
+        assertTrue(((String) st.get("message")).startsWith("Выберите вариант"));
+
+        List<String> right = ServerTestSupport.answers(Theme.MODULATION, null, SEED, 0);
+        st = quiz.answer(id, List.of(String.valueOf((int) Double.parseDouble(right.get(0)))));
+        assertEquals(5, st.get("taskGrade"));
+        assertEquals((int) Double.parseDouble(right.get(0)), map(st.get("task")).get("correct"));
+
+        st = quiz.next(id);
+        int correct = (int) Double.parseDouble(ServerTestSupport.answers(Theme.MODULATION, null, SEED, 1).get(0));
+        st = quiz.answer(id, List.of(String.valueOf(correct % 6 + 1)));          // другой вариант — неверно
+        assertEquals(2, st.get("taskGrade"));
+        assertEquals("Неверно. Правильный ответ: вариант " + correct + " (" + modKind(1) + ").", st.get("message"));
+        assertEquals(1L, st.get("solved"));
+
+        for (int n = 2; n < 5; n++) {                                            // остальные три — верно
+            quiz.next(id);
+            String v = ServerTestSupport.answers(Theme.MODULATION, null, SEED, n).get(0);
+            quiz.answer(id, List.of(String.valueOf((int) Double.parseDouble(v))));
+        }
+        st = quiz.next(id);
+        assertEquals("finished", st.get("status"));
+        assertEquals("4", map(st.get("result")).get("finalGrade"));             // одна ошибка из пяти — 4
+        assertEquals(4L, st.get("solved"));
+    }
+
+    private static String modKind(int n) {
+        TaskGenerator gen = Theme.MODULATION.newGenerator();
+        java.util.Random rnd = new java.util.Random(SEED);
+        Task t = null;
+        for (int i = 0; i <= n; i++) {
+            t = gen.next(Level.EASY, rnd);
+            ServerSchemeJson.of(t.scheme(), rnd);
+        }
+        return t.kind();
+    }
+
+    @Test
     void protocolErrors() {
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.state("нет")).status);
         assertEquals(404, assertThrows(ServerError.class, () -> quiz.answer(null, List.of("1"))).status);

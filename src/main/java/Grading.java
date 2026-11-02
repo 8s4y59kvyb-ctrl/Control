@@ -19,6 +19,15 @@ final class Grading {
         return hasFail(grades) ? 2 : average(grades);
     }
 
+    /**
+     * Оценка за тест целиком по числу ошибок (тема «Модуляция»): за каждую ошибку минус балл от пятёрки,
+     * но не ниже 2. Из 5 заданий: 5 верных — 5, 4 — 4, 3 — 3, меньше — 2. Задание с оценкой 2 — ошибка.
+     */
+    static double byMistakes(List<Integer> grades) {
+        long mistakes = grades.stream().filter(g -> g < 3).count();
+        return Math.max(2, 5 - mistakes);
+    }
+
     /** Целая оценка без дробной части, иначе с одним знаком после запятой: «5», «4,5». */
     static String format(double g) {
         return g == Math.rint(g)

@@ -198,6 +198,7 @@ final class ServerApp {
             ThemeRules r = quiz.settings().rules(t);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", t.name());
+            m.put("discipline", t.discipline.name());
             m.put("title", t.toString());
             m.put("hasLevels", t.hasLevels);
             m.put("description", t.description(r));
@@ -215,7 +216,12 @@ final class ServerApp {
             m.put("rules", l.rules());
             levels.add(m);
         }
+        List<Object> disciplines = new ArrayList<>();
+        for (Discipline d : Discipline.values()) {
+            disciplines.add(Map.of("id", d.name(), "title", d.title));
+        }
         Map<String, Object> out = new LinkedHashMap<>();
+        out.put("disciplines", disciplines);
         out.put("themes", list);
         out.put("levels", levels);
         return out;
@@ -228,6 +234,7 @@ final class ServerApp {
             ThemeRules r = v.rules().get(t), d = t.defaults();
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", t.name());
+            m.put("discipline", t.discipline.title);
             m.put("title", t.toString());
             m.put("hasLevels", t.hasLevels);
             m.put("easyMin", r.easySec() / 60);

@@ -59,7 +59,7 @@ final class ServerSettings {
             checkMinutes(t, r.easySec());
             checkMinutes(t, r.hardSec());
             if (r.tasks() < MIN_TASKS || r.tasks() > MAX_TASKS) {
-                throw ServerError.badRequest("Тема " + (t.ordinal() + 1) + ": заданий — от " + MIN_TASKS
+                throw ServerError.badRequest("Тема «" + t.title + "»: заданий — от " + MIN_TASKS
                         + " до " + MAX_TASKS + ".");
             }
             checked.put(t, r.equals(t.defaults()) ? null : r);       // null — удалить: действует значение из кода
@@ -80,7 +80,7 @@ final class ServerSettings {
 
     private static void checkMinutes(Theme t, int sec) {
         if (sec % 60 != 0 || sec < MIN_MINUTES * 60 || sec > MAX_MINUTES * 60) {
-            throw ServerError.badRequest("Тема " + (t.ordinal() + 1) + ": время на задание — целое число минут от "
+            throw ServerError.badRequest("Тема «" + t.title + "»: время на задание — целое число минут от "
                     + MIN_MINUTES + " до " + MAX_MINUTES + ".");
         }
     }

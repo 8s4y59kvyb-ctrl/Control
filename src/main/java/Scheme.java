@@ -21,6 +21,15 @@ interface Scheme {
     /** Рисует схему; перо уже настроено: цвет WIRE, толщина 2.2. */
     void draw(Painter g);
 
+    /** Размер холста; у схем и графиков 600×300, у вариантов ответа в задании на выбор — меньше. */
+    default int width() {
+        return 600;
+    }
+
+    default int height() {
+        return 300;
+    }
+
     /** Пути тока; доли токов ветвей пропорциональны их проводимостям. */
     List<FlowPath> flowPaths(Random rnd);
 

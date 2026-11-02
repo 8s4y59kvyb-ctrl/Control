@@ -24,9 +24,10 @@
       <label class="field">Фамилия
         <input id="surname" type="text" maxlength="80" required placeholder="Иванов Иван Иванович">
       </label>
-      <label class="field">Тема
-        <select id="theme"></select>
-      </label>
+      <div class="field">Дисциплина и тема
+        <!-- вкладки дисциплин: по нажатию раскрываются темы (app.js) -->
+        <div id="disciplines" class="disciplines"></div>
+      </div>
       <p id="theme-info" class="rules"></p>
       <div id="level-box" class="field">
         <span>Сложность</span>
@@ -77,8 +78,9 @@
         <div id="rules" class="rules"></div>
       </div>
       <div class="card">
-        <div class="card-title">Оценка за задание</div>
+        <div class="card-title" id="grade-title">Оценка за задание</div>
         <div id="grade" class="grade-value">—</div>
+        <div id="solved" class="muted" hidden></div>
       </div>
     </div>
   </section>

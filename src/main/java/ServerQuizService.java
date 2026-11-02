@@ -45,6 +45,7 @@ final class ServerQuizService {
         Task task;
         Map<String, Object> schemeJson;
         Map<String, Object> chartJson;    // график после задания (темы 4 и 5), иначе null
+        List<Map<String, Object>> optionsJson;   // картинки-варианты задания на выбор, иначе null
         int taskNumber, attempt;
         Instant deadline;
         boolean taskDone, finished;
@@ -143,7 +144,8 @@ final class ServerQuizService {
                 }
             } catch (NumberFormatException ex) {
                 // как на десктопе: попытка не тратится
-                ses.message = answers.size() > 1
+                ses.message = ses.task.isChoice() ? "Выберите вариант ответа. Попытка не потрачена."
+                        : answers.size() > 1
                         ? "Введите оба числа, например 1,25. Попытка не потрачена."
                         : "Введите число, например 1,25. Попытка не потрачена.";
                 ses.messageKind = "warn";
@@ -153,11 +155,12 @@ final class ServerQuizService {
             ses.attempt++;
             int right = ses.task.countCorrect(nums);
             if (right == nums.length) {                       // попытка засчитывается, если верны все значения
-                finishTask(ses, ses.taskLevel.gradeForAttempt(ses.attempt),
-                        "Верно! " + ses.task.correctText() + ". Задание решено с попытки " + ses.attempt + ".");
+                finishTask(ses, ses.taskLevel.gradeForAttempt(ses.attempt), ses.theme.gradesWholeTest()
+                        ? "Верно! Это " + ses.task.correctText() + "."
+                        : "Верно! " + ses.task.correctText() + ". Задание решено с попытки " + ses.attempt + ".");
             } else if (ses.attempt >= ses.taskLevel.attempts) {
-                String prefix = ses.taskLevel == Level.EASY ? "Неверно. В лёгком режиме одна попытка. "
-                                                            : "Попытки закончились. ";
+                String prefix = ses.taskLevel != Level.EASY ? "Попытки закончились. "
+                        : ses.theme.hasLevels ? "Неверно. В лёгком режиме одна попытка. " : "Неверно. ";
                 finishTask(ses, 2, prefix + "Правильный ответ: " + ses.task.correctText() + ".");
             } else {
                 ses.message = nums.length > 1
@@ -179,13 +182,14 @@ final class ServerQuizService {
             if (ses.grades.size() < ses.rules.tasks()) {
                 startTask(ses);
             } else {
-                ses.finalGrade = Grading.finalGrade(ses.grades);
+                ses.finalGrade = ses.theme.finalGrade(ses.grades);
                 ses.resultId = repo.finishSession(ses.id, ses.cadetId, ses.group, ses.surname, ses.theme, ses.level,
                         ses.finalGrade, ses.grades, LocalDateTime.now(clock));
                 ses.finished = true;
                 ses.task = null;
                 ses.schemeJson = null;
                 ses.chartJson = null;
+                ses.optionsJson = null;
             }
             return view(ses);
         }
@@ -223,6 +227,11 @@ final class ServerQuizService {
         ses.chartJson = null;
         ses.task = ses.generator.next(ses.taskLevel, ses.rnd);
         ses.schemeJson = ServerSchemeJson.of(ses.task.scheme(), ses.rnd);
+        ses.optionsJson = null;
+        if (ses.task.isChoice()) {                    // варианты не тратят ses.rnd: порядок случайных чисел не меняется
+            ses.optionsJson = new ArrayList<>();
+            for (Scheme o : ses.task.options()) ses.optionsJson.add(ServerSchemeJson.of(o, new Random(0)));
+        }
         ses.deadline = Instant.now(clock).plusSeconds(ses.rules.timeLimitSec(ses.taskLevel));
         touch(ses);
     }
@@ -276,6 +285,10 @@ final class ServerQuizService {
         m.put("hasLevels", ses.theme.hasLevels);
         m.put("level", ses.level == null ? null : ses.level.title);
         m.put("tasksTotal", ses.rules.tasks());
+        if (ses.theme.gradesWholeTest()) {                    // за задание — «верно / неверно», оценка — за тест
+            m.put("wholeTest", true);
+            m.put("solved", ses.grades.stream().filter(g -> g >= 3).count());
+        }
         if (ses.message != null) {
             m.put("message", ses.message);
             m.put("messageKind", ses.messageKind);
@@ -301,7 +314,7 @@ final class ServerQuizService {
         m.put("taskNumber", ses.taskNumber);
         m.put("attempt", ses.attempt);
         m.put("attemptsMax", ses.taskLevel.attempts);
-        m.put("rules", ses.taskLevel.rules());
+        m.put("rules", ses.theme.rules(ses.taskLevel));
         m.put("timeLimitSec", ses.rules.timeLimitSec(ses.taskLevel));
         long left = Duration.between(Instant.now(clock), ses.deadline).toMillis();
         m.put("secondsLeft", ses.taskDone ? 0 : Math.max(0, (left + 999) / 1000));
@@ -321,6 +334,11 @@ final class ServerQuizService {
         }
         task.put("fields", fields);
         task.put("scheme", ses.schemeJson);
+        if (ses.optionsJson != null) {
+            task.put("options", ses.optionsJson);
+            // номер верного варианта — только после завершения задания, чтобы подсветить его
+            if (ses.taskDone) task.put("correct", (int) ses.task.answers().get(0).value());
+        }
         if (ses.taskDone && ses.chartJson != null) {
             task.put("chart", ses.chartJson);
             m.put("chartSec", CHART_SEC);

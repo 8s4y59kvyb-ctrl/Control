@@ -29,6 +29,27 @@ input[type=text], select { display: block; width: 100%; margin-top: 4px; font: i
         padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; }
 input[type=text]:focus, select:focus { outline: none; border-color: #2563eb; }
 
+/* вкладки дисциплин с раскрывающимся списком тем */
+.disciplines { margin-top: 4px; }
+.disc { border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+.disc-head { display: flex; align-items: center; gap: 10px; width: 100%; background: #e2e8f0; color: #0f172a;
+        font: inherit; font-size: 15px; font-weight: bold; text-align: left; border: 0; padding: 11px 14px;
+        cursor: pointer; }
+.disc-head::before { content: "▸"; color: #2563eb; transition: transform .15s; }
+.disc-head[aria-expanded=true]::before { transform: rotate(90deg); }
+.disc-head:hover { background: #cbd5e1; }
+.disc-head[aria-expanded=true] { background: #2563eb; color: #fff; }
+.disc-head[aria-expanded=true]::before { color: #fff; }
+.disc-count { margin-left: auto; font-size: 12px; font-weight: normal; opacity: .75; }
+.disc-themes { padding: 6px; background: #fff; }
+.disc-empty { padding: 8px 10px; }
+.theme-opt { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer;
+        color: #0f172a; }
+.theme-opt:hover { background: #f1f5f9; }
+.theme-opt.on { background: #dbeafe; font-weight: bold; }
+.theme-opt.theme-off { color: #94a3b8; cursor: default; }
+.theme-opt input { margin: 0; accent-color: #2563eb; }
+
 .segmented { display: flex; margin: 4px 0 8px; }
 .segmented label { flex: 1; text-align: center; padding: 9px 14px; border: 1px solid #cbd5e1; cursor: pointer;
         background: #e2e8f0; color: #0f172a; }
@@ -49,6 +70,23 @@ input[type=text]:focus, select:focus { outline: none; border-color: #2563eb; }
 .fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
 .answer { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: bold; color: #475569; }
 .answer input { width: 130px; margin: 0; }
+/* задание на выбор: варианты-картинки с номерами */
+.fields.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.choice { position: relative; display: block; border: 2px solid #cbd5e1; border-radius: 10px; padding: 4px;
+        background: #fff; cursor: pointer; }
+.choice:hover { border-color: #93c5fd; }
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice canvas { display: block; width: 100%; height: auto; }
+.choice-num { display: inline-block; margin: 2px 0 2px 2px; min-width: 22px; padding: 1px 6px; border-radius: 6px;
+        background: #e2e8f0; color: #0f172a; font-weight: bold; text-align: center; }   /* над картинкой, не на ней */
+.choice.on { border-color: #2563eb; background: #eff6ff; }
+.choice.on .choice-num { background: #2563eb; color: #fff; }
+.choice-ok { border-color: #16a34a; background: #f0fdf4; }
+.choice-ok .choice-num { background: #16a34a; color: #fff; }
+.choice-bad { border-color: #dc2626; background: #fef2f2; }
+.choice-bad .choice-num { background: #dc2626; color: #fff; }
+.choice input:focus-visible + .choice-num { outline: 2px solid #2563eb; }
+
 .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
 .calc-btn { margin-left: auto; }                      /* прижата к правому краю, после «Проверить» */
 
@@ -99,6 +137,7 @@ input[type=text]:focus, select:focus { outline: none; border-color: #2563eb; }
 .dot-used { background: #ef4444; border-color: #b91c1c; }
 .dot-ok { background: #22c55e; border-color: #15803d; }
 .grade-value { font-size: 56px; font-weight: bold; color: #94a3b8; }
+.grade-value.grade-word { font-size: 32px; }            /* «верно» / «неверно» вместо цифры */
 .grade-good { color: #16a34a; }
 .grade-bad { color: #dc2626; }
 
@@ -136,6 +175,7 @@ input.num:focus { outline: none; border-color: #2563eb; }
 input.num:invalid { border-color: #dc2626; }
 .settings td { vertical-align: middle; }
 .settings .theme-name { white-space: normal; min-width: 220px; }
+.settings .disc-row { background: #f1f5f9; color: #0f172a; font-weight: bold; }
 .retake { margin: 14px 0 0; }
 .retake input.num { display: inline-block; margin: 4px 8px 0 0; }
 input.num.changed { border-color: #d97706; background: #fffbeb; }
