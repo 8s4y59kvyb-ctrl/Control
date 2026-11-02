@@ -97,6 +97,17 @@ function syncStartForm() {
   $('start-rules').textContent = lvl ? lvl.rules : '';
 }
 
+// группа — только цифры и тире: лишнее не даём ввести; фамилия — русские буквы: подсказываем про раскладку
+$('group').addEventListener('input', () => {
+  const g = $('group');
+  const clean = g.value.replace(/[^0-9\-‐‑‒–—−]/g, '');
+  if (clean !== g.value) g.value = clean;
+});
+$('surname').addEventListener('input', () => {
+  $('start-error').textContent = /[^А-ЯЁа-яё \-‐‑‒–—−]/.test($('surname').value)
+    ? 'Фамилию введите русскими буквами (проверьте раскладку клавиатуры).' : '';
+});
+
 $('start-form').addEventListener('submit', async ev => {
   ev.preventDefault();
   $('start-error').textContent = '';

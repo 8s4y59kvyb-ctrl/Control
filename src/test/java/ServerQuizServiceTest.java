@@ -39,7 +39,7 @@ class ServerQuizServiceTest {
     }
 
     private Map<String, Object> start(Theme theme, Level level) {
-        return quiz.start("км-21", " иванов ", theme, level);
+        return quiz.start("10-52", " иванов ", theme, level);
     }
 
     @Test
@@ -47,7 +47,7 @@ class ServerQuizServiceTest {
         Map<String, Object> st = start(Theme.OHM, Level.EASY);
         String id = (String) st.get("sessionId");
         assertEquals("task", st.get("status"));
-        assertEquals("КМ-21", st.get("group"));
+        assertEquals("10-52", st.get("group"));
         assertEquals("Иванов", st.get("surname"));
         assertEquals(1, st.get("attemptsMax"));
 
@@ -63,7 +63,7 @@ class ServerQuizServiceTest {
 
         List<ServerRepository.ResultRow> rows = repo.find(ServerRepository.Filter.NONE, 10, 0);
         assertEquals(1, rows.size());
-        assertEquals("КМ-21", rows.get(0).group());
+        assertEquals("10-52", rows.get(0).group());
         assertEquals(5.0, rows.get(0).grade());
         assertEquals(Level.EASY, rows.get(0).level());
 
@@ -220,20 +220,25 @@ class ServerQuizServiceTest {
         quiz.answer(id, List.of("1"));                                                   // неверно: одна попытка
         assertEquals(409, assertThrows(ServerError.class, () -> quiz.answer(id, List.of("1"))).status);
         assertEquals(400, assertThrows(ServerError.class, () -> quiz.start("", "Иванов", Theme.OHM, Level.EASY)).status);
-        assertEquals(400, assertThrows(ServerError.class, () -> quiz.start("КМ-21", "Иванов", Theme.OHM, null)).status);
+        assertEquals(400, assertThrows(ServerError.class, () -> quiz.start("10-52", "Иванов", Theme.OHM, null)).status);
     }
 
     @Test
     void inputIsNormalizedAndValidated() {
-        assertEquals("КМ-21", ServerInput.group("  км-21 "));
-        assertEquals("10-52", ServerInput.group("10-52"));
+        assertEquals("10-52", ServerInput.group("  10-52 "));
+        assertEquals("10-52", ServerInput.group("10 – 52"));                   // тире и минус — как дефис
+        assertEquals("10-52", ServerInput.group("10−52"));
+        assertEquals("1052", ServerInput.group("1052"));
         assertEquals("Иванов-Петров", ServerInput.surname("иванов-ПЕТРОВ"));
         assertEquals("Иванов Иван", ServerInput.surname("  иванов    иван "));
         assertEquals("Иванов Иван Иванович", ServerInput.surname("иванов иван иванович"));
-        for (String bad : new String[]{"", "   ", null, "=1+1", "a;b", "x".repeat(81), "Иван<script>", "12"}) {
+        assertEquals("Ёлкин", ServerInput.surname("ёлкин"));
+        for (String bad : new String[]{"", "   ", null, "=1+1", "a;b", "x".repeat(81), "Иван<script>", "12",
+                "Ivanov", "Иванoв" /* латинская «o» */, "Иванов.", "О'Брайен", "-Иванов"}) {
             assertThrows(ServerError.class, () -> ServerInput.surname(bad), String.valueOf(bad));
         }
-        for (String bad : new String[]{"", null, "-1", "=SUM(A1)", "К;М", "1".repeat(21)}) {
+        for (String bad : new String[]{"", null, "-1", "=SUM(A1)", "К;М", "1".repeat(21),
+                "КМ-21", "10-52а", "10/52", "10--52", "10-", "10 52"}) {
             assertThrows(ServerError.class, () -> ServerInput.group(bad), String.valueOf(bad));
         }
     }
@@ -248,7 +253,7 @@ class ServerQuizServiceTest {
             for (int i = 0; i < n; i++) {
                 final int k = i;
                 jobs.add(pool.submit(() -> {
-                    Map<String, Object> st = svc.start("КМ-2" + (k % 3), "Курсант" + "абвгдежзик".charAt(k / 10) + "абвгдежзик".charAt(k % 10),
+                    Map<String, Object> st = svc.start("10-5" + (k % 3), "Курсант" + "абвгдежзик".charAt(k / 10) + "абвгдежзик".charAt(k % 10),
                             Theme.EQUIVALENT, Level.EASY);
                     String id = (String) st.get("sessionId");
                     for (int t = 0; t < Theme.EQUIVALENT.tasks; t++) {

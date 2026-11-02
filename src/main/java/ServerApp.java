@@ -294,7 +294,7 @@ final class ServerApp {
         String g = ctx.queryParam("group");
         String t = ctx.queryParam("theme");
         return new ServerRepository.Filter(
-                g == null || g.isBlank() ? null : ServerInput.group(g),
+                g == null || g.isBlank() ? null : g.trim(),   // из списка групп журнала: там бывают и старые с буквами
                 t == null || t.isBlank() ? null : theme(t),
                 date(ctx.queryParam("from")),
                 date(ctx.queryParam("to")));

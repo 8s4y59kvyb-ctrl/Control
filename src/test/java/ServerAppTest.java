@@ -84,12 +84,12 @@ class ServerAppTest {
 
     @Test
     void fullQuizOverHttpEndsInJournalAndCsv() throws Exception {
-        HttpResponse<String> login = send("POST", "/api/login", "{\"group\":\"км-21\",\"surname\":\"иванов\"}", null);
+        HttpResponse<String> login = send("POST", "/api/login", "{\"group\":\"10-52\",\"surname\":\"иванов\"}", null);
         assertEquals(200, login.statusCode());
-        assertEquals("КМ-21", json(login).get("group").asText());
+        assertEquals("10-52", json(login).get("group").asText());
 
         HttpResponse<String> created = send("POST", "/api/sessions",
-                "{\"group\":\"км-21\",\"surname\":\"иванов\",\"theme\":\"OHM\",\"level\":\"EASY\"}", null);
+                "{\"group\":\"10-52\",\"surname\":\"иванов\",\"theme\":\"OHM\",\"level\":\"EASY\"}", null);
         assertEquals(201, created.statusCode());
         JsonNode st = json(created);
         String id = st.get("sessionId").asText();
@@ -107,7 +107,7 @@ class ServerAppTest {
         assertEquals("5", st.get("result").get("finalGrade").asText());
 
         // преподаватель видит запись и может отфильтровать
-        JsonNode list = json(send("GET", "/api/admin/results?group=" + enc("км-21"), null, "secret"));
+        JsonNode list = json(send("GET", "/api/admin/results?group=" + enc("10-52"), null, "secret"));
         assertEquals(1, list.get("total").asInt());
         assertEquals("Иванов", list.get("items").get(0).get("surname").asText());
         assertEquals(0, json(send("GET", "/api/admin/results?group=" + enc("ЭМ-1"), null, "secret")).get("total").asInt());
@@ -118,7 +118,7 @@ class ServerAppTest {
         assertTrue(csv.headers().firstValue("Content-Type").orElse("").startsWith("text/csv"));
         String[] lines = csv.body().split("\r\n");
         assertEquals("\uFEFF№;Дата;Время;Группа;Имя;Тема;Сложность;Оценка", lines[0]);
-        assertTrue(lines[1].matches("1;\\d\\d\\.\\d\\d\\.\\d{4};\\d\\d:\\d\\d:\\d\\d;КМ-21;Иванов;" + Theme.OHM.title + ";Лёгкий;5"), lines[1]);
+        assertTrue(lines[1].matches("1;\\d\\d\\.\\d\\d\\.\\d{4};\\d\\d:\\d\\d:\\d\\d;10-52;Иванов;" + Theme.OHM.title + ";Лёгкий;5"), lines[1]);
     }
 
     @Test
@@ -127,19 +127,19 @@ class ServerAppTest {
         assertEquals(400, send("POST", "/api/login", "не json", null).statusCode());
         assertEquals(400, send("POST", "/api/login", "[1,2]", null).statusCode());
         assertEquals(400, send("POST", "/api/sessions",
-                "{\"group\":\"КМ-21\",\"surname\":\"Иванов\",\"theme\":\"NOPE\"}", null).statusCode());
+                "{\"group\":\"10-52\",\"surname\":\"Иванов\",\"theme\":\"NOPE\"}", null).statusCode());
         assertEquals(400, send("POST", "/api/sessions",
-                "{\"group\":\"КМ-21\",\"surname\":\"Иванов\",\"theme\":\"OHM\"}", null).statusCode());   // нет сложности
+                "{\"group\":\"10-52\",\"surname\":\"Иванов\",\"theme\":\"OHM\"}", null).statusCode());   // нет сложности
         assertEquals(404, send("GET", "/api/sessions/unknown", null, null).statusCode());
         assertEquals(404, send("POST", "/api/sessions/unknown/answer", "{\"values\":[\"1\"]}", null).statusCode());
         assertEquals(404, send("GET", "/api/nothing", null, null).statusCode());
         assertEquals(413, send("POST", "/api/login", "{\"group\":\"" + "x".repeat(10_000) + "\"}", null).statusCode());
 
-        JsonNode err = json(send("POST", "/api/login", "{\"group\":\"КМ-21\",\"surname\":\"=cmd\"}", null));
+        JsonNode err = json(send("POST", "/api/login", "{\"group\":\"10-52\",\"surname\":\"=cmd\"}", null));
         assertFalse(err.get("error").asText().isEmpty());
 
         String id = json(send("POST", "/api/sessions",
-                "{\"group\":\"КМ-21\",\"surname\":\"Иванов\",\"theme\":\"DIVIDERS\"}", null)).get("sessionId").asText();
+                "{\"group\":\"10-52\",\"surname\":\"Иванов\",\"theme\":\"DIVIDERS\"}", null)).get("sessionId").asText();
         assertEquals(400, send("POST", "/api/sessions/" + id + "/answer", "{\"values\":\"1\"}", null).statusCode());
         assertEquals(400, send("POST", "/api/sessions/" + id + "/answer", "{\"values\":[\"1\"]}", null).statusCode());  // нужно два
         assertEquals(409, send("POST", "/api/sessions/" + id + "/next", null, null).statusCode());
