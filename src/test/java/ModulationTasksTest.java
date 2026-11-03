@@ -14,7 +14,10 @@ class ModulationTasksTest {
 
     private static int seed;
 
-    /** За пять заданий виды модуляции не повторяются; верный номер указывает на тот же вид. */
+    /**
+     * За пять заданий виды не повторяются; верный номер указывает на тот же вид. При манипуляции среди
+     * вариантов все три её вида, иначе — шесть видов модуляции.
+     */
     @RepeatedTest(50)
     void fiveTasksWithoutRepeats() {
         Random rnd = new Random(seed++);
@@ -42,12 +45,17 @@ class ModulationTasksTest {
                 types.add(p.type());
             }
             assertEquals(6, types.size());
+            if (given.type().keyed()) {
+                assertTrue(types.containsAll(Set.of(Modulation.ASK, Modulation.PSK, Modulation.FSK)));
+            } else {
+                assertTrue(types.stream().noneMatch(Modulation::keyed));
+            }
             assertTrue(t.correctText().endsWith("(" + t.kind() + ")"));
             assertTrue(t.text().contains("отводится 1 минута."));
         }
         assertEquals(5, kinds.size());
-        Task sixth = gen.next(Level.EASY, rnd);                       // шестое — оставшийся вид
-        assertFalse(kinds.contains(sixth.kind()));
+        for (int n = 5; n < 9; n++) kinds.add(gen.next(Level.EASY, rnd).kind());   // за девять — все виды
+        assertEquals(9, kinds.size());
     }
 
     @Test
@@ -61,7 +69,7 @@ class ModulationTasksTest {
             directions.add(((ModulationPicture) t.scheme()).spectrum());
             answers.add((int) t.answers().get(0).value());
         }
-        assertEquals(6, firsts.size());
+        assertEquals(9, firsts.size());
         assertEquals(2, directions.size());
         assertEquals(Set.of(1, 2, 3, 4, 5, 6), answers);
     }
@@ -83,6 +91,51 @@ class ModulationTasksTest {
         assertEquals(-1, Modulation.LFM.message(0), 1e-12);            // пила от −1 до 1
         assertEquals(0, Modulation.LFM.message(0.5), 1e-12);
         assertEquals(1, Modulation.AM.message(0), 1e-12);
+    }
+
+    /**
+     * Манипуляция импульсами со скважностью 3 (у ЧмнК — 2): у АмнК радиоимпульсы и паузы, у ЧмнК на импульсе
+     * f₀ + 3Ω, на паузе f₀ − 3Ω. Спектры линейчатые, огибающая sin x / x, на ±3Ω (кратно скважности) нули.
+     */
+    @Test
+    void keyingByPeriodicPulses() {
+        assertEquals(1, Modulation.PSK.message(0.1), 1e-12);            // импульс — первая треть периода
+        assertEquals(-1, Modulation.PSK.message(0.5), 1e-12);
+        assertEquals(1, Modulation.PSK.message(1.2), 1e-12);
+        assertEquals(0, Modulation.ASK.signal(0.5, 12, 0), 1e-12);      // в паузе АмнК молчит
+        assertEquals(1, Modulation.FSK.message(0.45), 1e-12);           // у ЧмнК скважность 2: импульс — половина
+        assertEquals(-1, Modulation.FSK.message(0.55), 1e-12);
+        assertEquals(15, crossings(0, 0.5));                           // ЧмнК: 15 периодов на период Ω — 7,5 за импульс
+        assertEquals(9, crossings(0.5, 1));                            // 9 на период Ω — 4,5 за паузу
+        assertEquals(1, Modulation.FSK.signal(1, 12, 0), 1e-9);         // фаза непрерывна и периодична
+
+        int n = ModulationPicture.LINES;
+        double[] ask = Modulation.ASK.spectrum(n, 0);
+        assertEquals(1.0 / 3, ask[n], 1e-6);                            // постоянная составляющая τ/T
+        assertEquals(Math.sin(Math.PI / 3) / Math.PI, ask[n + 1], 1e-6);
+        assertEquals(ask[n - 1], ask[n + 1], 1e-9);
+        assertEquals(0, ask[n + 3], 1e-6);
+        assertEquals(0, ask[n - 6], 1e-6);
+        double[] psk = Modulation.PSK.spectrum(n, 0);
+        assertEquals(1.0 / 3, psk[n], 1e-6);                            // несущая ниже ближних боковых
+        assertEquals(2 * ask[n + 1], psk[n + 1], 1e-6);
+        assertEquals(0, psk[n + 3], 1e-6);
+        double[] fsk = Modulation.FSK.spectrum(n, 0);
+        double power = 0;
+        for (double v : fsk) power += v * v;
+        assertEquals(1, power, 0.05);                                   // огибающая |A| = 1: линий почти хватает
+        assertTrue(fsk[n - 3] > fsk[n] && fsk[n + 3] > fsk[n]);         // горбы у f₂ и f₁
+        assertEquals(fsk[n - 3], fsk[n + 3], 1e-6);                     // импульс и пауза равны — горбы одинаковые
+        assertFalse(Modulation.ASK.continuous());
+    }
+
+    private static int crossings(double from, double to) {
+        int c = 0, steps = 2000;
+        for (int i = 0; i < steps; i++) {
+            double a = from + (to - from) * (i + 0.25) / steps, b = from + (to - from) * (i + 1.25) / steps;
+            if (b <= to && Modulation.FSK.signal(a, 12, 0) * Modulation.FSK.signal(b, 12, 0) < 0) c++;
+        }
+        return c;
     }
 
     @Test
@@ -145,6 +198,7 @@ class ModulationTasksTest {
             String ops = json.get("ops").toString();
             boolean indexed = type == Modulation.AM || type == Modulation.PM || type == Modulation.FM;
             assertEquals(indexed, ops.contains("[text, m,"), type.name());
+            assertEquals(type == Modulation.FSK, ops.contains("f₁"), type.name());
             Map<String, Object> time = ServerSchemeJson.of(new ModulationPicture(type, false, 10, 3, true), new Random());
             assertEquals(600, time.get("width"));
             assertTrue(time.get("ops").toString().contains("polyline"));

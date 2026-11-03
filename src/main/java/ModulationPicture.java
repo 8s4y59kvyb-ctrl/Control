@@ -3,7 +3,8 @@ import java.util.Random;
 
 /**
  * Картинка темы «Модуляция»: временное представление колебания (вверху модулирующий сигнал u(t), ниже s(t))
- * или его амплитудный спектр (линии на частотах ω0 + nΩ, у АМК, ФМК и ЧМК рядом — индекс модуляции mₐ, mф, mч).
+ * или его амплитудный спектр (линии на частотах ω0 + nΩ, у АМК, ФМК и ЧМК рядом — индекс модуляции mₐ, mф, mч;
+ * у ЛЧМ — сплошной, у ЧмнК подписаны f₁ и f₂).
  * Большая (600×300) — то, что дано в задании; маленькая (300×150) — вариант ответа.
  *
  * @param k число периодов несущей на период модуляции
@@ -95,8 +96,8 @@ record ModulationPicture(Modulation type, boolean spectrum, double k, double m, 
         g.strokeLine(c, y0 - 4 * s, c, y0 + 4 * s);              // отметка несущей, даже если её нет в спектре
         g.fillText("f₀", c - 7 * fs, y0 + 18 * fs);
 
-        if (type.continuous()) {
-            drawContinuous(g, c, step, y0, top);
+        if (type == Modulation.LFM) {
+            drawLfm(g, c, step, y0, top);
             return;
         }
         double[] a = type.spectrum(LINES, m);
@@ -110,6 +111,13 @@ record ModulationPicture(Modulation type, boolean spectrum, double k, double m, 
             double x = c + (i - LINES) * step, y = y0 - (y0 - top) * a[i] / max;
             g.strokeLine(x, y0, x, y);
             g.fillOval(x - 3 * s, y - 3 * s, 6 * s, 6 * s);
+        }
+
+        if (type == Modulation.FSK) {                              // частоты импульса и паузы
+            g.setFill(LABEL);
+            g.setBoldFont(13 * fs);
+            g.fillText("f₂", c - Modulation.FSK_SHIFT * step - 7 * fs, y0 + 18 * fs);
+            g.fillText("f₁", c + Modulation.FSK_SHIFT * step - 7 * fs, y0 + 18 * fs);
         }
 
         String sub = switch (type) {
@@ -134,7 +142,7 @@ record ModulationPicture(Modulation type, boolean spectrum, double k, double m, 
      * Сплошной спектр ЛЧМ: почти прямоугольный, шириной m·Ω на картинке, с пульсациями у краёв; над ним — размер Δf.
      * Форма считается для базы {@link #LFM_BASE} (при малой базе вершина не плоская) и сжимается до ширины m.
      */
-    private void drawContinuous(Painter g, double c, double step, double y0, double top) {
+    private void drawLfm(Painter g, double c, double step, double y0, double top) {
         int n = 240;
         double span = LINES + 0.5;                                // расстройка от несущей, в единицах Ω
         double[] vals = new double[n + 1];

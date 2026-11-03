@@ -8,8 +8,10 @@ import java.util.function.Function;
 /**
  * Тема «Модуляция» (дисциплина «Радиотехнические цепи и сигналы»): задания на сопоставление.
  * Дано временное представление колебания — выбрать его амплитудный спектр, или наоборот (направление случайно).
- * Вариантов всегда шесть — АМК, БМК, ОМК, ФМК, ЧМК, ЛЧМ в случайном порядке; ответ — номер варианта.
- * Виды модуляции идут в случайном порядке без повторов: за пять заданий один из шести видов не встретится.
+ * Вариантов всегда шесть, ответ — номер варианта. Если дана модуляция (АМК, БМК, ОМК, ФМК, ЧМК, ЛЧМ) —
+ * варианты все шесть этих видов; если манипуляция (АмнК, ФмнК, ЧмнК) — все три вида манипуляции и три
+ * случайных вида модуляции. Порядок вариантов случайный.
+ * Виды идут в случайном порядке без повторов: за пять заданий встречаются пять из девяти.
  * Параметры (периодов несущей на период модуляции, mₐ, mф, mч, Δf ЛЧМ) выбираются случайно один раз на тест.
  */
 final class ModulationTasks implements TaskGenerator {
@@ -45,8 +47,7 @@ final class ModulationTasks implements TaskGenerator {
         Modulation type = order.remove(0);
         boolean spectrumGiven = rnd.nextBoolean();
 
-        List<Modulation> variants = new ArrayList<>(Arrays.asList(Modulation.values()));
-        Collections.shuffle(variants, rnd);
+        List<Modulation> variants = variants(type, rnd);
         List<Scheme> options = new ArrayList<>();
         for (Modulation v : variants) options.add(picture(v, !spectrumGiven, false));
 
@@ -60,6 +61,20 @@ final class ModulationTasks implements TaskGenerator {
         String hint = "Сравните огибающую и частоту заполнения колебания с модулирующим сигналом.";
         return Task.choice(type.abbr, text, hint, picture(type, spectrumGiven, true), options,
                 variants.indexOf(type) + 1);
+    }
+
+    /** Шесть вариантов ответа в случайном порядке (см. описание класса). */
+    private static List<Modulation> variants(Modulation type, Random rnd) {
+        List<Modulation> analog = new ArrayList<>(), keyed = new ArrayList<>();
+        for (Modulation v : Modulation.values()) (v.keyed() ? keyed : analog).add(v);
+        List<Modulation> variants = analog;
+        if (type.keyed()) {
+            Collections.shuffle(analog, rnd);
+            variants = new ArrayList<>(keyed);
+            variants.addAll(analog.subList(0, 6 - keyed.size()));
+        }
+        Collections.shuffle(variants, rnd);
+        return variants;
     }
 
     private ModulationPicture picture(Modulation type, boolean spectrum, boolean large) {
