@@ -6,6 +6,7 @@
 const $ = id => document.getElementById(id);
 const FLOW_SPEED = 70;                       // скорость точек тока, px/с
 const SESSION_KEY = 'electroquiz.session';
+const WINDOW_KEY = 'electroquiz.window';
 
 let meta = null;                             // темы и уровни с сервера
 let state = null;                            // последнее состояние теста
@@ -34,6 +35,16 @@ async function api(method, url, body) {
 
 function show(id) {
   for (const s of ['start', 'quiz', 'result']) $(s).hidden = s !== id;
+}
+
+/** Случайный номер окна браузера: переживает перезагрузку, у новой вкладки свой. randomUUID на http недоступен. */
+function windowId() {
+  let id = sessionStorage.getItem(WINDOW_KEY);
+  if (!id) {
+    id = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+    sessionStorage.setItem(WINDOW_KEY, id);
+  }
+  return id;
 }
 
 // ---------- старт ----------
@@ -180,7 +191,7 @@ $('start-form').addEventListener('submit', async ev => {
       level: theme.hasLevels ? selectedLevel() : null,
     };
     await api('POST', '/api/login', { group: body.group, surname: body.surname });
-    const st = await api('POST', '/api/sessions', body);
+    const st = await api('POST', '/api/sessions', { ...body, windowId: windowId() });
     sessionStorage.setItem(SESSION_KEY, st.sessionId);
     render(st);
   } catch (e) {
@@ -219,13 +230,14 @@ function render(st) {
 
   setFeedback(st.message || '', st.messageKind);
   const g = $('grade');
+  const known = done && st.taskGrade !== undefined;   // оценку за задание сервер может не сообщать
   const good = st.taskGrade >= 3;
   // оценка за тест целиком (модуляция): за задание — только «верно / неверно» и счёт верных ответов
   $('grade-title').textContent = st.wholeTest ? 'Результат задания' : 'Оценка за задание';
-  g.textContent = !done ? '—' : st.wholeTest ? (good ? 'верно' : 'неверно') : st.taskGrade;
-  g.className = 'grade-value' + (st.wholeTest ? ' grade-word' : '') + (done ? (good ? ' grade-good' : ' grade-bad') : '');
-  $('solved').hidden = !st.wholeTest;
-  if (st.wholeTest) $('solved').textContent = 'Верных ответов: ' + st.solved + ' из ' + st.tasksTotal;
+  g.textContent = !known ? '—' : st.wholeTest ? (good ? 'верно' : 'неверно') : st.taskGrade;
+  g.className = 'grade-value' + (st.wholeTest ? ' grade-word' : '') + (known ? (good ? ' grade-good' : ' grade-bad') : '');
+  $('solved').hidden = st.solved === undefined;
+  if (st.solved !== undefined) $('solved').textContent = 'Верных ответов: ' + st.solved + ' из ' + st.tasksTotal;
 
   drawDots(st, done);
   drawScheme(st.task.scheme);
@@ -407,7 +419,7 @@ function renderResult(st) {
     info += '\nЗадание ' + t.number + ' (' + t.kind + '): '
       + (st.wholeTest ? (t.grade >= 3 ? 'верно' : 'неверно') : 'оценка ' + t.grade);
   }
-  if (st.wholeTest) info += '\n\nВерных ответов: ' + st.solved + ' из ' + r.tasks.length;
+  if (st.solved !== undefined) info += '\n\nВерных ответов: ' + st.solved + ' из ' + r.tasks.length;
   $('result-info').textContent = info;
   const g = $('result-grade');
   g.textContent = r.finalGrade;

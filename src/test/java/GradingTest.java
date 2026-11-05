@@ -29,6 +29,16 @@ class GradingTest {
     }
 
     @Test
+    void bonusAddsOneButNotAboveFive() {
+        assertEquals(3, Grading.withBonus(2));
+        assertEquals(4, Grading.withBonus(3));
+        assertEquals(4.5, Grading.withBonus(3.5));
+        assertEquals(5, Grading.withBonus(4));
+        assertEquals(5, Grading.withBonus(4.5));
+        assertEquals(5, Grading.withBonus(5));
+    }
+
+    @Test
     void formatDropsZeroFractionAndUsesComma() {
         assertEquals("5", Grading.format(5));
         assertEquals("4,5", Grading.format(4.5));

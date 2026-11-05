@@ -14,6 +14,44 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /** Слой данных веб-версии на временном файле SQLite: схема, курсанты, запись и отбор результатов. */
 class ServerRepositoryTest {
 
+    /** База прежней версии без столбца bonus: при открытии столбец добавляется, старые записи сохраняются. */
+    @Test
+    void oldDatabaseGetsBonusColumn(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("old.db");
+        try (java.sql.Connection c = java.sql.DriverManager.getConnection("jdbc:sqlite:" + file);
+             java.sql.Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE results (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL UNIQUE, "
+                    + "cadet_id INTEGER NOT NULL, taken_at TEXT NOT NULL, grp TEXT NOT NULL, surname TEXT NOT NULL, "
+                    + "theme TEXT NOT NULL, level TEXT, grade REAL NOT NULL, task_grades TEXT NOT NULL)");
+            st.execute("INSERT INTO results (session_id, cadet_id, taken_at, grp, surname, theme, grade, task_grades) "
+                    + "VALUES ('s0', 1, '2026-01-01T10:00:00', 'КМ-21', 'Иванов', 'OHM', 4, '4,4')");
+        }
+        ServerDatabase old = new ServerDatabase(file);
+        new ServerDatabase(file);                                      // повторное открытие не падает
+        try (java.sql.Connection c = old.open(); java.sql.Statement st = c.createStatement();
+             java.sql.ResultSet rs = st.executeQuery("SELECT grade, bonus FROM results")) {
+            org.junit.jupiter.api.Assertions.assertTrue(rs.next());
+            assertEquals(4.0, rs.getDouble(1));
+            assertEquals(0, rs.getInt(2));
+        }
+    }
+
+    @Test
+    void bonusMarkIsStoredButNotInJournalRow(@TempDir Path dir) throws Exception {
+        ServerDatabase base = new ServerDatabase(dir.resolve("b.db"));
+        ServerRepository r = new ServerRepository(base);
+        LocalDateTime when = LocalDateTime.of(2026, 1, 1, 10, 0);
+        long cadet = r.upsertCadet("КМ-21", "Иванов", when);
+        r.createSession("s1", cadet, Theme.OHM, Level.EASY, when);
+        r.finishSession("s1", cadet, "КМ-21", "Иванов", Theme.OHM, Level.EASY, 4, List.of(3, 3), true, when);
+        try (java.sql.Connection c = base.open(); java.sql.Statement st = c.createStatement();
+             java.sql.ResultSet rs = st.executeQuery("SELECT bonus, task_grades FROM results")) {
+            org.junit.jupiter.api.Assertions.assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("3,3", rs.getString(2));                      // исходные оценки за задания не меняются
+        }
+    }
+
     private static final LocalDateTime T1 = LocalDateTime.of(2026, 10, 20, 9, 0, 0);
     private static final LocalDateTime T2 = LocalDateTime.of(2026, 10, 21, 23, 59, 59);
     private static final LocalDateTime T3 = LocalDateTime.of(2026, 10, 22, 0, 0, 0);

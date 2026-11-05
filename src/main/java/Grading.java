@@ -28,6 +28,11 @@ final class Grading {
         return Math.max(2, 5 - mistakes);
     }
 
+    /** Итог с прибавкой одного балла, но не выше 5. */
+    static double withBonus(double grade) {
+        return Math.min(5, grade + 1);
+    }
+
     /** Целая оценка без дробной части, иначе с одним знаком после запятой: «5», «4,5». */
     static String format(double g) {
         return g == Math.rint(g)

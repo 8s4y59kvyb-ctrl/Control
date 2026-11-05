@@ -95,6 +95,12 @@ final class ServerRepository {
      */
     long finishSession(String sessionId, long cadetId, String group, String surname, Theme theme, Level level,
                        double grade, List<Integer> taskGrades, LocalDateTime now) {
+        return finishSession(sessionId, cadetId, group, surname, theme, level, grade, taskGrades, false, now);
+    }
+
+    /** То же; bonus — к итогу прибавлен балл (отметка только в базе: в журнал и CSV не выводится). */
+    long finishSession(String sessionId, long cadetId, String group, String surname, Theme theme, Level level,
+                       double grade, List<Integer> taskGrades, boolean bonus, LocalDateTime now) {
         try (Connection c = db.open()) {
             c.setAutoCommit(false);
             try {
@@ -106,8 +112,8 @@ final class ServerRepository {
                 }
                 long id;
                 try (PreparedStatement ins = c.prepareStatement(
-                        "INSERT INTO results (session_id, cadet_id, taken_at, grp, surname, theme, level, grade, task_grades) "
-                                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS)) {
+                        "INSERT INTO results (session_id, cadet_id, taken_at, grp, surname, theme, level, grade, task_grades, bonus) "
+                                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS)) {
                     ins.setString(1, sessionId);
                     ins.setLong(2, cadetId);
                     ins.setString(3, ISO.format(now));
@@ -117,6 +123,7 @@ final class ServerRepository {
                     ins.setString(7, level == null ? null : level.name());
                     ins.setDouble(8, grade);
                     ins.setString(9, taskGrades.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                    ins.setInt(10, bonus ? 1 : 0);
                     ins.executeUpdate();
                     try (ResultSet keys = ins.getGeneratedKeys()) {
                         keys.next();
@@ -265,11 +272,13 @@ final class ServerRepository {
         }
     }
 
-    /** Удаляет все изменённые настройки: дальше действуют значения из кода. */
-    void resetSettings() {
-        try (Connection c = db.open(); Statement st = c.createStatement()) {
+    /** Удаляет изменённые настройки, кроме настройки keep: дальше действуют значения из кода. */
+    void resetSettings(String keep) {
+        try (Connection c = db.open(); Statement st = c.createStatement();
+             PreparedStatement ps = c.prepareStatement("DELETE FROM settings WHERE name <> ?")) {
             st.executeUpdate("DELETE FROM theme_settings");
-            st.executeUpdate("DELETE FROM settings");
+            ps.setString(1, keep);
+            ps.executeUpdate();
         } catch (SQLException ex) {
             throw fail(ex);
         }

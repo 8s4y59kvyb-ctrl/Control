@@ -17,6 +17,7 @@ final class ServerSettings {
     static final int MIN_TASKS = 1, MAX_TASKS = 5;                // заданий в тесте
     static final int DEFAULT_RETAKE_MIN = 15, MAX_RETAKE_MIN = 240;   // пауза перед пересдачей; 0 — без паузы
     private static final String RETAKE = "retake_min";
+    private static final String BONUS = "window_bonus";           // галочка в углу страницы преподавателя
 
     /** Снимок настроек: правила всех тем и пауза перед пересдачей в минутах. */
     record Values(Map<Theme, ThemeRules> rules, int retakeMin) {
@@ -24,10 +25,25 @@ final class ServerSettings {
 
     private final ServerRepository repo;
     private volatile Values current;
+    private volatile boolean bonus;
 
     ServerSettings(ServerRepository repo) {
         this.repo = repo;
         this.current = load();
+        this.bonus = repo.setting(BONUS) != null;
+    }
+
+    /** Стоит ли галочка: первый тест в каждом окне браузера идёт с прибавкой балла и без показа результатов. */
+    boolean bonus() {
+        return bonus;
+    }
+
+    /** Галочка хранится в базе отдельно от остальных настроек и не зависит от их сброса. */
+    synchronized void setBonus(boolean on) {
+        Map<String, String> other = new HashMap<>();
+        other.put(BONUS, on ? "1" : null);
+        repo.saveSettings(Map.of(), other);
+        bonus = on;
     }
 
     Values values() {
@@ -73,7 +89,7 @@ final class ServerSettings {
 
     /** Возвращает значения из кода. */
     synchronized Values reset() {
-        repo.resetSettings();
+        repo.resetSettings(BONUS);
         current = load();
         return current;
     }

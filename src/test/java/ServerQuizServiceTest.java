@@ -109,6 +109,208 @@ class ServerQuizServiceTest {
         assertFalse((Boolean) map(st.get("result")).get("passed"));
     }
 
+    /** Проходит тест: правильные ответы в заданиях из right, остальные неверные. Возвращает итоговое состояние. */
+    private Map<String, Object> finish(Map<String, Object> st, Theme theme, Level level, boolean... right) {
+        String id = (String) st.get("sessionId");
+        for (int n = 0; n < right.length; n++) {
+            List<String> a = ServerTestSupport.answers(theme, level, SEED, n);
+            st = quiz.answer(id, right[n] ? a : ServerTestSupport.wrong(a));
+            if ("task_done".equals(st.get("status"))) st = quiz.next(id);
+        }
+        return st;
+    }
+
+    private Map<String, Object> startIn(String window, String surname) {
+        return quiz.start("10-52", surname, Theme.EQUIVALENT, Level.EASY, window);
+    }
+
+    @Test
+    void withoutCheckboxWindowChangesNothing() {
+        Map<String, Object> st = finish(startIn("w1", "Иванов"), Theme.EQUIVALENT, Level.EASY, false, false);
+        assertEquals("2", map(st.get("result")).get("finalGrade"));
+        assertFalse((Boolean) map(st.get("result")).get("passed"));
+        assertEquals(2, ((List<?>) map(st.get("result")).get("tasks")).size());
+    }
+
+    @Test
+    void bonusOnlyForFirstTestInWindow() {
+        quiz.settings().setBonus(true);
+        Map<String, Object> first = finish(startIn("w1", "Иванов"), Theme.EQUIVALENT, Level.EASY, false, true);
+        assertEquals("3", map(first.get("result")).get("finalGrade"));          // двойка за задание: итог 2 + 1
+        assertTrue((Boolean) map(first.get("result")).get("passed"));
+        assertEquals(List.of(), map(first.get("result")).get("tasks"));         // оценки за задания не показываем
+
+        Map<String, Object> second = finish(startIn("w1", "Петров"), Theme.EQUIVALENT, Level.EASY, false, true);
+        assertEquals("2", map(second.get("result")).get("finalGrade"));
+        assertEquals(2, ((List<?>) map(second.get("result")).get("tasks")).size());
+
+        Map<String, Object> other = finish(startIn("w2", "Сидоров"), Theme.EQUIVALENT, Level.EASY, false, false);
+        assertEquals("3", map(other.get("result")).get("finalGrade"));          // новое окно: 2 + 1
+    }
+
+    @Test
+    void bonusKeepsThreeAttemptsAndHidesWrongOne() {
+        quiz.settings().setBonus(true);
+        Map<String, Object> st = quiz.start("10-52", "Иванов", Theme.OHM, Level.HARD, "w1");
+        String id = (String) st.get("sessionId");
+        assertEquals(3, st.get("attemptsMax"));
+        st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 0)));
+        assertEquals("task", st.get("status"));                        // то же задание: попытки остались
+        assertEquals(1, st.get("taskNumber"));
+        assertEquals(1, st.get("attempt"));
+        assertEquals("Ответ не засчитан.", st.get("message"));          // без подсказки и без цвета
+        assertNull(st.get("messageKind"));
+
+        st = quiz.answer(id, ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 0));   // вторая попытка — 4
+        assertEquals(2, st.get("taskNumber"));
+        assertEquals("Ответ принят.", st.get("message"));
+        st = quiz.answer(id, ServerTestSupport.answers(Theme.OHM, Level.HARD, SEED, 1));   // первая попытка — 5
+        assertEquals("finished", st.get("status"));
+        assertEquals("5", map(st.get("result")).get("finalGrade"));    // среднее 4,5 + 1, но не выше 5
+    }
+
+    @Test
+    void bonusAttemptsRunOutGiveTwoThenThree() {
+        quiz.settings().setBonus(true);
+        Map<String, Object> st = quiz.start("10-52", "Иванов", Theme.DIVIDERS, null, "w1");
+        String id = (String) st.get("sessionId");
+        for (int n = 0; n < 2; n++) {
+            List<String> w = ServerTestSupport.wrong(ServerTestSupport.answers(Theme.DIVIDERS, null, SEED, n));
+            for (int a = 0; a < 3; a++) st = quiz.answer(id, w);
+        }
+        assertEquals("finished", st.get("status"));
+        assertEquals("3", map(st.get("result")).get("finalGrade"));
+    }
+
+    @Test
+    void modulationWithBonusHidesVariantsAndRaisesByOne() {
+        quiz.settings().setBonus(true);
+        // {верные ответы по заданиям, ожидаемая оценка}: без галочки было бы 2, 3, 4 и 5
+        Object[][] cases = {
+                {new boolean[]{false, false, false, true, true}, "3"},
+                {new boolean[]{false, false, true, true, true}, "4"},
+                {new boolean[]{false, true, true, true, true}, "5"},
+                {new boolean[]{true, true, true, true, true}, "5"},
+        };
+        int i = 0;
+        for (Object[] c : cases) {
+            Map<String, Object> st = quiz.start("10-52", "Иванов" + "а".repeat(++i), Theme.MODULATION, null, "w" + i);
+            assertFalse(st.containsKey("solved"));
+            st = finish(st, Theme.MODULATION, null, (boolean[]) c[0]);
+            assertEquals("finished", st.get("status"));
+            assertEquals(c[1], map(st.get("result")).get("finalGrade"));
+            assertFalse(st.containsKey("solved"));                     // счёт верных ответов не показываем
+            assertEquals(List.of(), map(st.get("result")).get("tasks"));
+        }
+    }
+
+    @Test
+    void modulationWithBonusTimeoutHidesCorrectVariant() {
+        quiz.settings().setBonus(true);
+        String id = (String) quiz.start("10-52", "Иванов", Theme.MODULATION, null, "w1").get("sessionId");
+        clock.advanceSeconds(Theme.MODULATION.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
+        Map<String, Object> st = quiz.state(id);
+        assertEquals("task_done", st.get("status"));
+        assertFalse(st.containsKey("taskGrade"));
+        assertFalse(map(st.get("task")).containsKey("correct"));
+        assertEquals("Время вышло.", st.get("message"));
+    }
+
+    @Test
+    void secondModulationInWindowShowsResultsAgain() {
+        quiz.settings().setBonus(true);
+        finish(quiz.start("10-52", "Иванов", Theme.MODULATION, null, "w1"), Theme.MODULATION, null,
+                true, true, true, true, true);
+        Map<String, Object> st = quiz.start("10-52", "Петров", Theme.MODULATION, null, "w1");
+        String id = (String) st.get("sessionId");
+        st = quiz.answer(id, ServerTestSupport.wrong(ServerTestSupport.answers(Theme.MODULATION, null, SEED, 0)));
+        assertEquals("task_done", st.get("status"));
+        assertEquals(2, st.get("taskGrade"));
+        assertTrue(map(st.get("task")).containsKey("correct"));
+        assertEquals(0L, st.get("solved"));
+    }
+
+    @Test
+    void bonusDoesNotRaiseFive() {
+        quiz.settings().setBonus(true);
+        Map<String, Object> st = finish(startIn("w1", "Иванов"), Theme.EQUIVALENT, Level.EASY, true, true);
+        assertEquals("5", map(st.get("result")).get("finalGrade"));
+    }
+
+    @Test
+    void testStartedBeforeCheckboxStaysUsualAndUsesWindow() {
+        Map<String, Object> started = startIn("w1", "Иванов");
+        quiz.settings().setBonus(true);
+        Map<String, Object> st = finish(started, Theme.EQUIVALENT, Level.EASY, true, false);
+        assertEquals("2", map(st.get("result")).get("finalGrade"));
+        st = finish(startIn("w1", "Петров"), Theme.EQUIVALENT, Level.EASY, true, false);
+        assertEquals("2", map(st.get("result")).get("finalGrade"));
+    }
+
+    @Test
+    void uncheckingDoesNotChangeRunningTest() {
+        quiz.settings().setBonus(true);
+        Map<String, Object> started = startIn("w1", "Иванов");
+        quiz.settings().setBonus(false);
+        Map<String, Object> st = finish(started, Theme.EQUIVALENT, Level.EASY, false, false);
+        assertEquals("3", map(st.get("result")).get("finalGrade"));
+    }
+
+    @Test
+    void bonusTestHidesOutcomeOfEveryAnswer() {
+        quiz.settings().setBonus(true);
+        for (boolean right : new boolean[]{true, false}) {
+            String window = "w" + right;
+            Map<String, Object> st = quiz.start("10-52", "Иванов" + (right ? "а" : "ов"), Theme.AC_REACTANCE, Level.EASY, window);
+            List<String> a = ServerTestSupport.answers(Theme.AC_REACTANCE, Level.EASY, SEED, 0);
+            st = quiz.answer((String) st.get("sessionId"), right ? a : ServerTestSupport.wrong(a));
+            assertEquals("task", st.get("status"));                    // сразу следующее задание
+            assertEquals(2, st.get("taskNumber"));
+            assertEquals("Ответ принят.", st.get("message"));
+            assertNull(st.get("messageKind"));
+            assertFalse(st.containsKey("taskGrade"));
+            assertFalse(map(st.get("task")).containsKey("chart"));     // график выдал бы верный ответ
+        }
+    }
+
+    @Test
+    void bonusTimeoutHidesGrade() {
+        quiz.settings().setBonus(true);
+        String id = (String) startIn("w1", "Иванов").get("sessionId");
+        clock.advanceSeconds(Theme.EQUIVALENT.timeLimitSec(Level.EASY) + ServerQuizService.GRACE_SEC + 1);
+        Map<String, Object> st = quiz.state(id);
+        assertEquals("task_done", st.get("status"));
+        assertFalse(st.containsKey("taskGrade"));
+        assertEquals("Время вышло.", st.get("message"));                // правильный ответ не показываем
+        assertNull(st.get("messageKind"));
+    }
+
+    @Test
+    void refusedRetakeDoesNotUseWindow() {
+        finish(startIn("w1", "Иванов"), Theme.EQUIVALENT, Level.EASY, true, true);
+        quiz.settings().setBonus(true);
+        assertThrows(ServerError.class, () -> startIn("w2", "Иванов"));   // пауза перед пересдачей
+        Map<String, Object> st = finish(startIn("w2", "Петров"), Theme.EQUIVALENT, Level.EASY, false, false);
+        assertEquals("3", map(st.get("result")).get("finalGrade"));
+    }
+
+    @Test
+    void testWithoutWindowIdHasNoBonus() {
+        quiz.settings().setBonus(true);
+        Map<String, Object> st = finish(startIn(null, "Иванов"), Theme.EQUIVALENT, Level.EASY, false, false);
+        assertEquals("2", map(st.get("result")).get("finalGrade"));
+    }
+
+    @Test
+    void settingsResetKeepsCheckboxAndRestartRemembersIt() {
+        quiz.settings().setBonus(true);
+        quiz.settings().reset();
+        assertTrue(quiz.settings().bonus());
+        assertTrue(new ServerSettings(repo).bonus());
+        quiz.settings().setBonus(false);
+        assertFalse(new ServerSettings(repo).bonus());
+    }
+
     @Test
     void invalidInputDoesNotSpendAttempt() {
         Map<String, Object> st = start(Theme.EQUIVALENT, Level.EASY);

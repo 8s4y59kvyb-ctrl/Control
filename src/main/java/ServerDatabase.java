@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.Collator;
@@ -48,7 +49,8 @@ final class ServerDatabase {
                 theme       TEXT NOT NULL,
                 level       TEXT,
                 grade       REAL NOT NULL,
-                task_grades TEXT NOT NULL
+                task_grades TEXT NOT NULL,
+                bonus       INTEGER NOT NULL DEFAULT 0
             )""",
             // настройки со страницы преподавателя; темы без строки работают по значениям из Theme
             """
@@ -85,10 +87,21 @@ final class ServerDatabase {
         config.enforceForeignKeys(true);
         try (Connection c = open(); Statement st = c.createStatement()) {
             for (String sql : SCHEMA) st.execute(sql);
-            st.execute("PRAGMA user_version = 2");
+            addBonusColumn(st);
+            st.execute("PRAGMA user_version = 3");
         } catch (SQLException ex) {
             throw new IllegalStateException("Не удалось подготовить базу данных " + file, ex);
         }
+    }
+
+    /** База прежней версии: в таблице результатов ещё нет столбца bonus. Старые записи получают 0. */
+    private static void addBonusColumn(Statement st) throws SQLException {
+        try (ResultSet rs = st.executeQuery("PRAGMA table_info(results)")) {
+            while (rs.next()) {
+                if ("bonus".equals(rs.getString("name"))) return;
+            }
+        }
+        st.execute("ALTER TABLE results ADD COLUMN bonus INTEGER NOT NULL DEFAULT 0");
     }
 
     /**

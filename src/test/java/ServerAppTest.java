@@ -197,6 +197,34 @@ class ServerAppTest {
     }
 
     @Test
+    void checkboxNeedsPasswordAndIsSaved() throws Exception {
+        assertEquals(401, send("GET", "/api/admin/bonus", null, null).statusCode());
+        assertEquals(401, send("PUT", "/api/admin/bonus", "{\"on\":true}", null).statusCode());
+        assertFalse(json(send("GET", "/api/admin/bonus", null, "secret")).get("on").asBoolean());
+        assertEquals(400, send("PUT", "/api/admin/bonus", "{\"on\":\"да\"}", "secret").statusCode());
+        assertTrue(json(send("PUT", "/api/admin/bonus", "{\"on\":true}", "secret")).get("on").asBoolean());
+        assertTrue(json(send("GET", "/api/admin/bonus", null, "secret")).get("on").asBoolean());
+    }
+
+    @Test
+    void windowIdFromBrowserGivesBonusOnce() throws Exception {
+        send("PUT", "/api/admin/bonus", "{\"on\":true}", "secret");
+        String body = "{\"group\":\"10-52\",\"surname\":\"%s\",\"theme\":\"EQUIVALENT\",\"level\":\"EASY\",\"windowId\":\"w1\"}";
+        for (String[] c : new String[][]{{"Иванов", "3"}, {"Петров", "2"}}) {
+            String id = json(send("POST", "/api/sessions", String.format(body, c[0]), null)).get("sessionId").asText();
+            JsonNode st = null;
+            for (int n = 0; n < 2; n++) {
+                st = json(send("POST", "/api/sessions/" + id + "/answer",
+                        answerBody(ServerTestSupport.wrong(ServerTestSupport.answers(Theme.EQUIVALENT, Level.EASY, SEED, n))), null));
+                if ("task_done".equals(st.get("status").asText())) {
+                    st = json(send("POST", "/api/sessions/" + id + "/next", null, null));
+                }
+            }
+            assertEquals(c[1], st.get("result").get("finalGrade").asText());
+        }
+    }
+
+    @Test
     void teacherChangesSettings() throws Exception {
         assertEquals(401, send("GET", "/api/admin/settings", null, null).statusCode());
         assertEquals(401, send("PUT", "/api/admin/settings", "{}", "wrong").statusCode());

@@ -106,7 +106,7 @@ final class ServerApp {
             JsonNode b = body(ctx);
             Theme theme = theme(text(b, "theme"));
             Level level = theme.hasLevels ? level(text(b, "level")) : null;
-            ctx.status(201).json(quiz.start(text(b, "group"), text(b, "surname"), theme, level));
+            ctx.status(201).json(quiz.start(text(b, "group"), text(b, "surname"), theme, level, text(b, "windowId")));
         });
         app.get("/api/sessions/{id}", ctx -> ctx.json(quiz.state(ctx.pathParam("id"))));
         app.post("/api/sessions/{id}/answer", ctx -> {
@@ -151,6 +151,14 @@ final class ServerApp {
             ServerSettings.Values v = quiz.settings().reset();
             LOG.info("Настройки сброшены с адреса {}", ctx.ip());
             ctx.json(settingsJson(v));
+        });
+        app.get("/api/admin/bonus", ctx -> ctx.json(Map.of("on", quiz.settings().bonus())));
+        app.put("/api/admin/bonus", ctx -> {
+            JsonNode on = body(ctx).get("on");
+            if (on == null || !on.isBoolean()) throw ServerError.badRequest("Нужно логическое поле on.");
+            quiz.settings().setBonus(on.asBoolean());
+            LOG.info("Галочка прибавки {} с адреса {}", on.asBoolean() ? "поставлена" : "снята", ctx.ip());
+            ctx.json(Map.of("on", quiz.settings().bonus()));
         });
     }
 

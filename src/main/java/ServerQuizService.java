@@ -27,6 +27,9 @@ final class ServerQuizService {
     static final int GRACE_SEC = 2;                               // запас на задержку сети при проверке времени
     static final int MAX_ANSWER_LEN = 30;
     static final int CHART_SEC = 5;                               // сколько браузер показывает график после задания
+    static final int MAX_WINDOW_ID_LEN = 64;
+    static final int MAX_WINDOWS = 100_000;                       // защита памяти от потока выдуманных номеров окон
+    static final Duration WINDOW_TTL = Duration.ofDays(1);        // номера окон забываются через сутки
 
     /** Состояние одного теста; все обращения — под synchronized (session). */
     private static final class Session {
@@ -39,6 +42,7 @@ final class ServerQuizService {
         final ThemeRules rules;           // время и число заданий на момент старта
         final TaskGenerator generator;
         final Random rnd;
+        final boolean bonus;              // итог +1 (не выше 5), результаты заданий курсанту не показываются
         final List<Integer> grades = new ArrayList<>();
         final List<String> kinds = new ArrayList<>();
 
@@ -55,7 +59,8 @@ final class ServerQuizService {
         long resultId;
         Instant touched;
 
-        Session(long cadetId, String group, String surname, Theme theme, Level level, ThemeRules rules, Random rnd) {
+        Session(long cadetId, String group, String surname, Theme theme, Level level, ThemeRules rules, Random rnd,
+                boolean bonus) {
             this.cadetId = cadetId;
             this.group = group;
             this.surname = surname;
@@ -65,6 +70,7 @@ final class ServerQuizService {
             this.rules = rules;
             this.generator = theme.newGenerator(rules);
             this.rnd = rnd;
+            this.bonus = bonus;
         }
     }
 
@@ -73,6 +79,7 @@ final class ServerQuizService {
     private final Clock clock;
     private final Supplier<Random> randoms;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private final Map<String, Instant> usedWindows = new ConcurrentHashMap<>();   // окна браузера, где тест уже начинали
 
     ServerQuizService(ServerRepository repo) {
         this(repo, Clock.systemDefaultZone(), Random::new);
@@ -98,6 +105,11 @@ final class ServerQuizService {
 
     /** Начинает тест: первое задание выдаётся сразу, время на него пошло. */
     Map<String, Object> start(String group, String surname, Theme theme, Level level) {
+        return start(group, surname, theme, level, null);
+    }
+
+    /** То же; windowId — случайный номер окна браузера, по нему определяется первый тест в этом окне. */
+    Map<String, Object> start(String group, String surname, Theme theme, Level level, String windowId) {
         String g = ServerInput.group(group), s = ServerInput.surname(surname);
         if (!theme.ready()) throw ServerError.badRequest("Тема в разработке: заданий пока нет.");
         if (theme.hasLevels && level == null) throw ServerError.badRequest("Выберите сложность.");
@@ -106,8 +118,9 @@ final class ServerQuizService {
 
         long cadetId = repo.upsertCadet(g, s, LocalDateTime.now(clock));
         checkRetake(cadetId, theme);
+        boolean first = firstInWindow(windowId);              // отказ по паузе перед пересдачей окно не расходует
         Session ses = new Session(cadetId, g, s, theme, theme.hasLevels ? level : null, settings.rules(theme),
-                randoms.get());
+                randoms.get(), first && settings.bonus());
         synchronized (ses) {
             repo.createSession(ses.id, cadetId, theme, ses.level, LocalDateTime.now(clock));
             sessions.put(ses.id, ses);
@@ -154,6 +167,18 @@ final class ServerQuizService {
 
             ses.attempt++;
             int right = ses.task.countCorrect(nums);
+            if (ses.bonus) {                                  // исход не показываем, правила оценки те же
+                boolean solved = right == nums.length;
+                if (solved || ses.attempt >= ses.taskLevel.attempts) {
+                    finishTask(ses, solved ? ses.taskLevel.gradeForAttempt(ses.attempt) : 2, null);
+                    advance(ses);
+                    if (!ses.finished) ses.message = "Ответ принят.";
+                } else {
+                    ses.message = "Ответ не засчитан.";
+                    ses.messageKind = null;
+                }
+                return view(ses);
+            }
             if (right == nums.length) {                       // попытка засчитывается, если верны все значения
                 finishTask(ses, ses.taskLevel.gradeForAttempt(ses.attempt), ses.theme.gradesWholeTest()
                         ? "Верно! Это " + ses.task.correctText() + "."
@@ -179,18 +204,7 @@ final class ServerQuizService {
             if (ses.finished) return view(ses);
             expireIfNeeded(ses);
             if (!ses.taskDone) throw ServerError.conflict("Сначала завершите текущее задание.");
-            if (ses.grades.size() < ses.rules.tasks()) {
-                startTask(ses);
-            } else {
-                ses.finalGrade = ses.theme.finalGrade(ses.grades);
-                ses.resultId = repo.finishSession(ses.id, ses.cadetId, ses.group, ses.surname, ses.theme, ses.level,
-                        ses.finalGrade, ses.grades, LocalDateTime.now(clock));
-                ses.finished = true;
-                ses.task = null;
-                ses.schemeJson = null;
-                ses.chartJson = null;
-                ses.optionsJson = null;
-            }
+            advance(ses);
             return view(ses);
         }
     }
@@ -218,6 +232,33 @@ final class ServerQuizService {
         }
     }
 
+    /**
+     * Первый ли тест в этом окне браузера. Окно считается использованным и при снятой галочке.
+     * Без номера окна и при переполнении — не первый: тест идёт по обычным правилам.
+     */
+    private boolean firstInWindow(String windowId) {
+        if (windowId == null || windowId.isEmpty() || windowId.length() > MAX_WINDOW_ID_LEN) return false;
+        if (usedWindows.size() >= MAX_WINDOWS && !usedWindows.containsKey(windowId)) return false;
+        return usedWindows.putIfAbsent(windowId, Instant.now(clock)) == null;
+    }
+
+    /** После завершённого задания: следующее задание либо (после последнего) итог теста с записью в базу. */
+    private void advance(Session ses) {
+        if (ses.grades.size() < ses.rules.tasks()) {
+            startTask(ses);
+        } else {
+            double grade = ses.theme.finalGrade(ses.grades);
+            ses.finalGrade = ses.bonus ? Grading.withBonus(grade) : grade;
+            ses.resultId = repo.finishSession(ses.id, ses.cadetId, ses.group, ses.surname, ses.theme, ses.level,
+                    ses.finalGrade, ses.grades, ses.bonus, LocalDateTime.now(clock));
+            ses.finished = true;
+            ses.task = null;
+            ses.schemeJson = null;
+            ses.chartJson = null;
+            ses.optionsJson = null;
+        }
+    }
+
     private void startTask(Session ses) {
         ses.taskNumber++;
         ses.attempt = 0;
@@ -240,11 +281,11 @@ final class ServerQuizService {
         ses.taskDone = true;
         ses.taskGrade = grade;
         ses.message = message;
-        ses.messageKind = grade >= 3 ? "ok" : "bad";
+        ses.messageKind = ses.bonus ? null : grade >= 3 ? "ok" : "bad";
         ses.grades.add(grade);
         ses.kinds.add(ses.task.kind());
         // оценка 3 и выше — задание решено; график не тратит ses.rnd: порядок случайных чисел не меняется
-        if (ses.task.showsChart(grade >= 3)) ses.chartJson = ServerSchemeJson.of(ses.task.chart(), new Random(0));
+        if (!ses.bonus && ses.task.showsChart(grade >= 3)) ses.chartJson = ServerSchemeJson.of(ses.task.chart(), new Random(0));
         touch(ses);
     }
 
@@ -253,7 +294,7 @@ final class ServerQuizService {
         touch(ses);
         if (ses.finished || ses.taskDone) return false;
         if (!Instant.now(clock).isAfter(ses.deadline.plusSeconds(GRACE_SEC))) return false;
-        finishTask(ses, 2, "Время вышло. Правильный ответ: " + ses.task.correctText() + ".");
+        finishTask(ses, 2, ses.bonus ? "Время вышло." : "Время вышло. Правильный ответ: " + ses.task.correctText() + ".");
         return true;
     }
 
@@ -273,6 +314,8 @@ final class ServerQuizService {
             Session s = it.next();
             if (s.touched != null && s.touched.isBefore(limit)) it.remove();
         }
+        Instant windowLimit = Instant.now(clock).minus(WINDOW_TTL);
+        usedWindows.values().removeIf(t -> t.isBefore(windowLimit));
     }
 
     private Map<String, Object> view(Session ses) {
@@ -287,7 +330,7 @@ final class ServerQuizService {
         m.put("tasksTotal", ses.rules.tasks());
         if (ses.theme.gradesWholeTest()) {                    // за задание — «верно / неверно», оценка — за тест
             m.put("wholeTest", true);
-            m.put("solved", ses.grades.stream().filter(g -> g >= 3).count());
+            if (!ses.bonus) m.put("solved", ses.grades.stream().filter(g -> g >= 3).count());
         }
         if (ses.message != null) {
             m.put("message", ses.message);
@@ -298,7 +341,7 @@ final class ServerQuizService {
             result.put("finalGrade", Grading.format(ses.finalGrade));
             result.put("passed", ses.finalGrade >= 3);
             List<Object> tasks = new ArrayList<>();
-            for (int i = 0; i < ses.grades.size(); i++) {
+            for (int i = 0; !ses.bonus && i < ses.grades.size(); i++) {   // при прибавке — только итог
                 Map<String, Object> t = new LinkedHashMap<>();
                 t.put("number", i + 1);
                 t.put("kind", ses.kinds.get(i));
@@ -319,7 +362,7 @@ final class ServerQuizService {
         long left = Duration.between(Instant.now(clock), ses.deadline).toMillis();
         m.put("secondsLeft", ses.taskDone ? 0 : Math.max(0, (left + 999) / 1000));
         if (ses.taskDone) {
-            m.put("taskGrade", ses.taskGrade);
+            if (!ses.bonus) m.put("taskGrade", ses.taskGrade);
             m.put("lastTask", ses.taskNumber >= ses.rules.tasks());
         }
 
@@ -337,7 +380,7 @@ final class ServerQuizService {
         if (ses.optionsJson != null) {
             task.put("options", ses.optionsJson);
             // номер верного варианта — только после завершения задания, чтобы подсветить его
-            if (ses.taskDone) task.put("correct", (int) ses.task.answers().get(0).value());
+            if (ses.taskDone && !ses.bonus) task.put("correct", (int) ses.task.answers().get(0).value());
         }
         if (ses.taskDone && ses.chartJson != null) {
             task.put("chart", ses.chartJson);

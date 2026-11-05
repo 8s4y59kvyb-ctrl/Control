@@ -45,6 +45,7 @@ function showLogin(message) {
   password = '';
   try { sessionStorage.removeItem(KEY); } catch (e) { /* ничего */ }
   $('journal').hidden = true;
+  $('corner').hidden = true;
   $('login').hidden = false;
   $('login-error').textContent = message || '';
   $('password').value = '';
@@ -217,7 +218,9 @@ async function resetSettings() {
 // Первый запрос с паролем заодно проверяет его: при неверном снова показывается форма входа
 async function enter() {
   try {
-    const [groups, meta] = await Promise.all([get('/api/admin/groups'), get('/api/themes')]);
+    const [groups, meta, bonus] = await Promise.all(
+      [get('/api/admin/groups'), get('/api/themes'), get('/api/admin/bonus')]);
+    $('corner').checked = bonus.on;
     $('f-group').length = 1;
     $('f-theme').length = 1;
     for (const g of groups) $('f-group').add(new Option(g, g));
@@ -234,7 +237,19 @@ async function enter() {
   }
   $('login').hidden = true;
   $('journal').hidden = false;
+  $('corner').hidden = false;
   load();
+}
+
+// Галочка сохраняется сразу; при ошибке возвращается в прежнее положение
+async function saveCorner() {
+  const box = $('corner');
+  try {
+    box.checked = (await (await request('/api/admin/bonus', 'PUT', { on: box.checked })).json()).on;
+  } catch (e) {
+    box.checked = !box.checked;
+    fail(e);
+  }
 }
 
 $('login-form').addEventListener('submit', ev => {
@@ -252,5 +267,6 @@ for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', (
 $('settings-form').addEventListener('submit', saveSettings);
 $('settings-reset').addEventListener('click', resetSettings);
 $('logout').addEventListener('click', () => showLogin());
+$('corner').addEventListener('change', saveCorner);
 
 if (password) enter(); else showLogin();
