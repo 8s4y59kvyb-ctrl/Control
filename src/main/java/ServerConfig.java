@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * Настройки сервера. Источники по убыванию приоритета: системное свойство (-Delectroquiz.port=…),
  * переменная окружения (ELECTROQUIZ_PORT), значение по умолчанию.
- * Пароль преподавателя нигде не хранится в коде: без него страница преподавателя отключена.
+ * Если пароль преподавателя не задан, действует {@link #DEFAULT_ADMIN_PASSWORD}.
  *
  * @param port          порт HTTP
  * @param dbFile        файл SQLite
@@ -15,6 +15,7 @@ import java.util.Map;
 record ServerConfig(int port, Path dbFile, String adminPassword) {
 
     static final int DEFAULT_PORT = 8080;
+    static final String DEFAULT_ADMIN_PASSWORD = "test1234";
 
     boolean adminEnabled() {
         return adminPassword != null && !adminPassword.isEmpty();
@@ -33,7 +34,8 @@ record ServerConfig(int port, Path dbFile, String adminPassword) {
         }
         String db = pick(env, "electroquiz.db", "ELECTROQUIZ_DB");
         Path dbFile = db != null ? Paths.get(db) : defaultDbDir().resolve("electroquiz.db");
-        return new ServerConfig(port, dbFile, pick(env, "electroquiz.adminPassword", "ELECTROQUIZ_ADMIN_PASSWORD"));
+        String password = pick(env, "electroquiz.adminPassword", "ELECTROQUIZ_ADMIN_PASSWORD");
+        return new ServerConfig(port, dbFile, password != null ? password : DEFAULT_ADMIN_PASSWORD);
     }
 
     private static String pick(Map<String, String> env, String prop, String var) {

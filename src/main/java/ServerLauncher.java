@@ -20,6 +20,9 @@ public class ServerLauncher {
         log.info("ElectroQuiz: http://localhost:{}/  база данных: {}", port, config.dbFile());
         if (config.adminEnabled()) {
             log.info("Страница преподавателя: http://localhost:{}/admin", port);
+            if (ServerConfig.DEFAULT_ADMIN_PASSWORD.equals(config.adminPassword())) {
+                log.warn("Действует пароль преподавателя по умолчанию: задайте свой в ELECTROQUIZ_ADMIN_PASSWORD.");
+            }
         } else {
             log.warn("Пароль преподавателя не задан (ELECTROQUIZ_ADMIN_PASSWORD) — страница результатов отключена.");
         }

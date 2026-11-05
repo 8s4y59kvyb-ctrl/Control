@@ -197,6 +197,13 @@ class ServerAppTest {
     }
 
     @Test
+    void adminPasswordHasDefaultAndCanBeOverridden() {
+        assertEquals("test1234", ServerConfig.load(java.util.Map.of()).adminPassword());
+        assertEquals("test1234", ServerConfig.load(java.util.Map.of("ELECTROQUIZ_ADMIN_PASSWORD", " ")).adminPassword());
+        assertEquals("своё", ServerConfig.load(java.util.Map.of("ELECTROQUIZ_ADMIN_PASSWORD", "своё")).adminPassword());
+    }
+
+    @Test
     void checkboxNeedsPasswordAndIsSaved() throws Exception {
         assertEquals(401, send("GET", "/api/admin/bonus", null, null).statusCode());
         assertEquals(401, send("PUT", "/api/admin/bonus", "{\"on\":true}", null).statusCode());

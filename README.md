@@ -48,7 +48,7 @@ ELECTROQUIZ_ADMIN_PASSWORD=пароль java -jar ElectroQuizServer.jar
 |------------|------------|--------------|
 | `ELECTROQUIZ_PORT` | порт HTTP | 8080 |
 | `ELECTROQUIZ_DB` | файл базы SQLite | `electroquiz.db` рядом с jar |
-| `ELECTROQUIZ_ADMIN_PASSWORD` | пароль страницы преподавателя | не задан — `/admin` отключена |
+| `ELECTROQUIZ_ADMIN_PASSWORD` | пароль страницы преподавателя | `test1234` — на рабочем сервере задайте свой |
 
 Страница студента — `http://адрес-сервера:8080/`, преподавателя — `http://адрес-сервера:8080/admin`.
 
